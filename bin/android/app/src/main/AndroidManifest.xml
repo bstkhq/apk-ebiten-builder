@@ -1,0 +1,21 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+  <application
+    android:supportsRtl="true"
+    android:allowBackup="true"
+    android:label="Demo Ebiten"
+    android:theme="@style/SplashTheme">
+    <activity
+      android:exported="true"
+      android:name=".MainActivity"
+      android:label="Demo Ebiten"
+      android:screenOrientation="portrait"
+      android:immersive="true"
+      android:launchMode="singleInstance">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>
