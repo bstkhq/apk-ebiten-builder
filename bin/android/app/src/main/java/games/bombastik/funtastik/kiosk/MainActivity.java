@@ -14,9 +14,9 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
 import go.Seq;
-import @@JAVA_PKG@@.mobile.EbitenView;
-import @@JAVA_PKG@@.mobile.Mobile;
-import @@JAVA_PKG@@.mobile.IMEBridge;
+import @@JAVA_PKG@@.@@GO_PKG@@.EbitenView;
+import @@JAVA_PKG@@.@@GO_PKG@@.Mobile;
+import @@JAVA_PKG@@.@@GO_PKG@@.IMEBridge;
 
 public class MainActivity extends AppCompatActivity {
   private static final String TAG = "Ebiten/Android";

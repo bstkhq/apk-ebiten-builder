@@ -2,7 +2,7 @@ package @@APP_ID@@;
 
 import android.content.Context;
 import android.util.AttributeSet;
-import @@JAVA_PKG@@.mobile.EbitenView;
+import @@JAVA_PKG@@.@@GO_PKG@@.EbitenView;
 
 
 class EbitenViewWithErrorHandling extends EbitenView {
