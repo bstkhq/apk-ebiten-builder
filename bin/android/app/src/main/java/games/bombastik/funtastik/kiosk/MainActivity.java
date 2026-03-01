@@ -1,4 +1,4 @@
-package games.bombastik.funtastik.kiosk;
+package @@APP_ID@@;
 
 import android.os.Build;
 import android.os.Bundle;
@@ -14,13 +14,12 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
 import go.Seq;
-import games.bombastik.funtastik.kiosk.corelib.mobile.EbitenView;
-
-import games.bombastik.funtastik.kiosk.corelib.mobile.Mobile;
-import games.bombastik.funtastik.kiosk.corelib.mobile.IMEBridge;
+import @@JAVA_PKG@@.mobile.EbitenView;
+import @@JAVA_PKG@@.mobile.Mobile;
+import @@JAVA_PKG@@.mobile.IMEBridge;
 
 public class MainActivity extends AppCompatActivity {
-  private static final String TAG = "DemoAndroid";
+  private static final String TAG = "Ebiten/Android";
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -29,7 +28,7 @@ public class MainActivity extends AppCompatActivity {
 
     System.out.println("MainActivity: DEBUG: onCreate started.");
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { // API 30+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         hideSystemBarsApi30();
     } else {
         hideSystemBarsLegacy();

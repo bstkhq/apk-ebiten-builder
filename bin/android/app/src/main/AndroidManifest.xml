@@ -1,14 +1,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-feature android:glEsVersion="0x00020000" android:required="true" />
   <application
+    android:icon="@mipmap/ic_launcher"
+    android:roundIcon="@mipmap/ic_launcher_round"
     android:supportsRtl="true"
     android:allowBackup="true"
-    android:label="Demo Ebiten"
+    android:label="@@APP_NAME@@"
     android:theme="@style/SplashTheme">
     <activity
       android:exported="true"
-      android:name=".MainActivity"
-      android:label="Demo Ebiten"
+      android:name="@@MAIN_ACTIVITY@@"
+      android:label="@@APP_NAME@@"
       android:screenOrientation="portrait"
       android:immersive="true"
       android:launchMode="singleInstance">

@@ -3,10 +3,10 @@ plugins {
 }
 
 android {
-  namespace 'games.bombastik.funtastik.kiosk'
+  namespace '@@APP_ID@@'
   compileSdk 35
   defaultConfig {
-    applicationId "games.bombastik.funtastik.kiosk"
+    applicationId "@@APP_ID@@"
     minSdk 24
     targetSdk 35
     versionCode 1

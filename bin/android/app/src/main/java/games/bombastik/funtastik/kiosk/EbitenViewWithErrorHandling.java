@@ -1,8 +1,8 @@
-package games.bombastik.funtastik.kiosk;
+package @@APP_ID@@;
 
 import android.content.Context;
 import android.util.AttributeSet;
-import games.bombastik.funtastik.kiosk.corelib.mobile.EbitenView;
+import @@JAVA_PKG@@.mobile.EbitenView;
 
 
 class EbitenViewWithErrorHandling extends EbitenView {
