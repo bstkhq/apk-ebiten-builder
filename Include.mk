@@ -1,3 +1,9 @@
+
+_THIS_MK := $(abspath $(lastword $(MAKEFILE_LIST)))
+_THIS_DIR := $(dir $(_THIS_MK))
+
+include $(_THIS_DIR)/Dependencies.mk
+
 # Configuration variables
 APP_NAME ?= Ebiten Android
 APP_ID ?= games.funtastik.kiosk
@@ -125,8 +131,8 @@ info:
 	@echo "    ANDROID_DIR   : $(ANDROID_DIR)"
 	@echo "    VERSION       : $(VERSION)"
 	@echo "    VERSION_CODE  : $(VERSION_CODE)"
-	@echo "    AAR (rel)     : $(AAR_PATH_REL)"
-	@echo "    APK (rel)     : $(APK_DEBUG_REL)"
+	@echo "    AAR           : $(AAR_PATH)"
+	@echo "    APK           : $(APK_DEBUG)"
 	@echo "    DEBUG         : $(DEBUG)"
 	@echo "    GRADLE_LOG    : $(GRADLE_LOG)"
 
