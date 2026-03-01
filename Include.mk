@@ -1,15 +1,23 @@
-SHELL := /bin/bash
-ROOT_DIR := $(abspath .)
-
 # Configuration variables
 APP_NAME ?= Ebiten Android
 APP_ID ?= games.funtastik.kiosk
 MAIN_ACTIVITY ?= .MainActivity
 GO_PKG ?= mobile
-GO_SRC ?= /home/mcuadros/workspace/go/src/github.com/erparts/go-uikit/example/android
+GO_SRC ?=
+VERSION ?= v1.0.0
+ROOT_DIR ?= $(abspath .)
+
+# Required variables
+ifeq ($(strip $(GO_SRC)),)
+  $(error GO_SRC is empty.)
+endif
+ifeq ($(strip $(ANDROID_SDK_ROOT)),)
+  $(error ANDROID_SDK_ROOT is empty.)
+endif
 
 # Internal variables
-ANDROID_SRC := $(ROOT_DIR)/bin/android
+SHELL := /bin/bash
+ANDROID_SRC := $(ROOT_DIR)/android
 ANDROID_DIR := $(ROOT_DIR)/.build/android
 
 APP_ID_PATH := $(subst .,/,$(APP_ID))
@@ -20,9 +28,24 @@ ARR_PATH := $(ANDROID_DIR)/app/libs/game.aar
 AAR_DIR := $(dir $(ARR_PATH))
 JAVA_PKG ?= $(APP_ID).corelib
 
+# Permissive: extract first 4 integers found in VERSION (ignore everything else),
+# fill missing with 0, then format: major + minor(2) + patch(2) + extra(2)
+VERSION_CODE := $(shell bash -lc '\
+  set -euo pipefail; \
+  v="$(VERSION)"; \
+  mapfile -t nums < <(printf "%s" "$$v" | grep -oE "[0-9]+" | head -n 4); \
+  major="$${nums[0]:-0}"; \
+  minor="$${nums[1]:-0}"; \
+  patch="$${nums[2]:-0}"; \
+  extra="$${nums[3]:-0}"; \
+  printf "%d%02d%02d%02d\n" "$$major" "$$minor" "$$patch" "$$extra"; \
+')
+
 # Names of placeholders to replace in templates: @@VAR@@
-TEMPLATE_VARS := APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY ANDROID_SDK_ROOT
-export APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY
+TEMPLATE_VARS := APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY  \
+	ANDROID_SDK_ROOT VERSION VERSION_CODE
+
+export APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY VERSION VERSION_CODE
 
 # Which files are considered "text templates"
 TEMPLATE_FILE_GLOBS := -name "*.gradle" -o -name "*.properties" \
@@ -34,7 +57,7 @@ TEMPLATE_FILE_GLOBS := -name "*.gradle" -o -name "*.properties" \
 # NOTE: avoid $] interpolation by using (\\|&|\$) instead of a [...] class ending with $]
 PERL_SUBS := $(foreach v,$(TEMPLATE_VARS),-pe '$$r=$$ENV{$(v)}//""; $$r=~s/(\\\\|&|\\$$)/\\\\$$1/g; s/\@\@$(v)\@\@/$$r/g;')
 
-all: generate compile build
+all: clean build install
 
 generate: $(ANDROID_DIR)
 
@@ -68,7 +91,7 @@ $(ARR_PATH):
 	cd "$(GO_SRC)" && \
 		ebitenmobile bind -target android -javapkg $(JAVA_PKG) -o "$(ARR_PATH)" .
 
-build:
+build: generate compile
 	cd "$(ANDROID_DIR)" && ./gradlew tasks && ./gradlew assembleDebug
 
 install:
