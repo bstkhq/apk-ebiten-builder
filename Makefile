@@ -16,7 +16,7 @@ compile:
 	ebitenmobile bind -target android -javapkg $(JAVA_PKG) -o $(AAR_OUT) $(GO_PKG)
 
 build:
-	cd $(ANDROID_DIR) && ./gradlew assembleDebug
+	cd $(ANDROID_DIR) && ./gradlew tasks && ./gradlew assembleDebug
 
 install:
 	cd $(ANDROID_DIR) && ./gradlew installDebug

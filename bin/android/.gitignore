@@ -3,3 +3,4 @@ build
 gradle/wrapper/gradle-wrapper.jar
 app/libs/*
 local.properties
+bin/android-libs/
