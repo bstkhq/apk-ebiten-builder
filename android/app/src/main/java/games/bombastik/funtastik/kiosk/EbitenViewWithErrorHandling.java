@@ -1,11 +1,13 @@
 package @@APP_ID@@;
 
+import android.util.Log;
 import android.content.Context;
 import android.util.AttributeSet;
 import @@JAVA_PKG@@.@@GO_PKG@@.EbitenView;
 
-
 class EbitenViewWithErrorHandling extends EbitenView {
+  private static final String TAG = "BSTK";
+
   public EbitenViewWithErrorHandling(Context context) {
     super(context);
   }
@@ -16,8 +18,7 @@ class EbitenViewWithErrorHandling extends EbitenView {
 
   @Override
   protected void onErrorOnGameUpdate(Exception e) {
-    // You can define your own error handling e.g., using Crashlytics.
-    // e.g., Crashlytics.logException(e);
+    Log.e(TAG, "onErrorOnGameUpdate", e);
     super.onErrorOnGameUpdate(e);
   }
 }

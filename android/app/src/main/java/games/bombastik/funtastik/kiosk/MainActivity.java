@@ -19,124 +19,159 @@ import @@JAVA_PKG@@.@@GO_PKG@@.Mobile;
 import @@JAVA_PKG@@.@@GO_PKG@@.IMEBridge;
 
 public class MainActivity extends AppCompatActivity {
-  private static final String TAG = "Ebiten/Android";
+  private static final String TAG = "BSTK";
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    Log.i(TAG, "onCreate: enter");
     super.onCreate(savedInstanceState);
-    setContentView(R.layout.activity_main);
 
-    System.out.println("MainActivity: DEBUG: onCreate started.");
+    try {
+      setContentView(R.layout.activity_main);
+      Log.i(TAG, "onCreate: setContentView ok");
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         hideSystemBarsApi30();
-    } else {
+        Log.i(TAG, "onCreate: hideSystemBarsApi30 ok");
+      } else {
         hideSystemBarsLegacy();
-    }
-
-    Seq.setContext(getApplicationContext());
-    System.out.println("MainActivity: DEBUG: Seq.setContext() called.");
-
-    EbitenView v = this.getEbitenView();
-    if (v != null) {
-      v.setFocusable(true);
-      v.setFocusableInTouchMode(true);
-      v.requestFocus();
-    }
-
-    Mobile.registerIMEBridge(new IMEBridge() {
-      @Override
-      public void show() {
-        runOnUiThread(() -> showIme(v));
+        Log.i(TAG, "onCreate: hideSystemBarsLegacy ok");
       }
 
-      @Override
-      public void hide() {
-        runOnUiThread(() -> hideIme(v));
-      }
-    });
+      Seq.setContext(getApplicationContext());
+      Log.i(TAG, "onCreate: Seq.setContext ok");
 
-    System.out.println("MainActivity: DEBUG: MainActivity onCreate finished.");
+      EbitenView v = getEbitenView();
+      Log.i(TAG, "onCreate: ebiten view = " + v);
+
+      if (v != null) {
+        v.setFocusable(true);
+        v.setFocusableInTouchMode(true);
+        v.requestFocus();
+        Log.i(TAG, "onCreate: ebiten view focused");
+      } else {
+        Log.e(TAG, "onCreate: ebiten view is null");
+      }
+
+      Mobile.registerIMEBridge(new IMEBridge() {
+        @Override
+        public void show() {
+          Log.i(TAG, "IMEBridge.show()");
+          runOnUiThread(() -> showIme(v));
+        }
+
+        @Override
+        public void hide() {
+          Log.i(TAG, "IMEBridge.hide()");
+          runOnUiThread(() -> hideIme(v));
+        }
+      });
+
+      Mobile.setLogger(new AndroidLogger());
+
+      Log.i(TAG, "onCreate: IME bridge registered");
+      Log.i(TAG, "onCreate: finished");
+    } catch (Throwable t) {
+      Log.e(TAG, "onCreate: fatal error", t);
+      throw t;
+    }
   }
 
   @Override
   protected void onPause() {
+    Log.i(TAG, "onPause: enter");
     super.onPause();
-    Log.v("MainActivity", "EbitenView.suspendGame() is about to be called.....");
-    this.getEbitenView().suspendGame();
-    Log.v("MainActivity", "EbitenView.suspendGame() has been called.....");
+    EbitenView view = getEbitenView();
+    if (view != null) {
+      view.suspendGame();
+      Log.i(TAG, "onPause: suspendGame ok");
+    } else {
+      Log.e(TAG, "onPause: ebiten view is null");
+    }
   }
 
   @Override
   protected void onResume() {
+    Log.i(TAG, "onResume: enter");
     super.onResume();
-    Log.v("MainActivity", "EbitenView.resumeGame() is about to be called.....");
-    this.getEbitenView().resumeGame();
-    Log.v("MainActivity", "EbitenView.resumeGame() has been called!");
+    EbitenView view = getEbitenView();
+
+    if (view != null) {
+      view.resumeGame();
+      Log.i(TAG, "onResume: resumeGame ok");
+    } else {
+      Log.e(TAG, "onResume: ebiten view is null");
+    }
   }
 
   private EbitenView getEbitenView() {
-      return (EbitenView)this.findViewById(R.id.ebitenview);
+    return (EbitenView) this.findViewById(R.id.ebitenview);
   }
 
   private int hideSystemBars() {
-    int uiOptions =
-      View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-    | View.SYSTEM_UI_FLAG_FULLSCREEN
-    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
-    return uiOptions;
+    return View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        | View.SYSTEM_UI_FLAG_FULLSCREEN
+        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
   }
 
-  //----------------------------------------------------------------------------------------------
-  // IME: minimal helpers
-  //----------------------------------------------------------------------------------------------
   private void showIme(View view) {
-    if (view == null) return;
+    if (view == null) {
+      Log.e(TAG, "showIme: view is null");
+      return;
+    }
     view.requestFocus();
     InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
     if (imm != null) {
       imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
+      Log.i(TAG, "showIme: requested");
+    } else {
+      Log.e(TAG, "showIme: InputMethodManager is null");
     }
   }
 
   private void hideIme(View view) {
-    if (view == null) return;
+    if (view == null) {
+      Log.e(TAG, "hideIme: view is null");
+      return;
+    }
     InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
     if (imm != null) {
       imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+      Log.i(TAG, "hideIme: requested");
+    } else {
+      Log.e(TAG, "hideIme: InputMethodManager is null");
     }
   }
 
-  //----------------------------------------------------------------------------------------------
-  // Methods for API 30+ (Android 11 and above)
-  //----------------------------------------------------------------------------------------------
   private void hideSystemBarsApi30() {
-    WindowInsetsControllerCompat insetsController = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+    WindowInsetsControllerCompat insetsController = WindowCompat.getInsetsController(
+        getWindow(),
+        getWindow().getDecorView());
     if (insetsController == null) {
+      Log.e(TAG, "hideSystemBarsApi30: controller is null");
       return;
     }
-    insetsController.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+    insetsController.setSystemBarsBehavior(
+        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
     insetsController.hide(WindowInsetsCompat.Type.systemBars());
   }
 
-  //----------------------------------------------------------------------------------------------
-  // Methods for legacy APIs (below 30)
-  //----------------------------------------------------------------------------------------------
   @SuppressWarnings("deprecation")
   private void hideSystemBarsLegacy() {
     View decorView = getWindow().getDecorView();
     decorView.setSystemUiVisibility(hideSystemBars());
 
-    decorView.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
-      @Override
-      public void onSystemUiVisibilityChange(int visibility) {
-        if ((visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
-          decorView.setSystemUiVisibility(hideSystemBars());
-        }
-      }
-    });
+    decorView.setOnSystemUiVisibilityChangeListener(
+        new View.OnSystemUiVisibilityChangeListener() {
+          @Override
+          public void onSystemUiVisibilityChange(int visibility) {
+            if ((visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+              decorView.setSystemUiVisibility(hideSystemBars());
+            }
+          }
+        });
   }
 }
