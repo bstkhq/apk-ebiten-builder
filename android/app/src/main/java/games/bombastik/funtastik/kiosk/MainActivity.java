@@ -19,7 +19,7 @@ import @@JAVA_PKG@@.@@GO_PKG@@.Mobile;
 import @@JAVA_PKG@@.@@GO_PKG@@.IMEBridge;
 
 public class MainActivity extends AppCompatActivity {
-  private static final String TAG = "BSTK";
+  private static final String TAG = "@@LOG_TAG@@";
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -66,8 +66,6 @@ public class MainActivity extends AppCompatActivity {
           runOnUiThread(() -> hideIme(v));
         }
       });
-
-      Mobile.setLogger(new AndroidLogger());
 
       Log.i(TAG, "onCreate: IME bridge registered");
       Log.i(TAG, "onCreate: finished");

@@ -6,7 +6,7 @@ import android.util.AttributeSet;
 import @@JAVA_PKG@@.@@GO_PKG@@.EbitenView;
 
 class EbitenViewWithErrorHandling extends EbitenView {
-  private static final String TAG = "BSTK";
+  private static final String TAG = "@@LOG_TAG@@";
 
   public EbitenViewWithErrorHandling(Context context) {
     super(context);
