@@ -11,7 +11,7 @@
       android:exported="true"
       android:name="@@MAIN_ACTIVITY@@"
       android:label="@@APP_NAME@@"
-      android:screenOrientation="portrait"
+      android:screenOrientation="@@SCREEN_ORIENTATION@@"
       android:immersive="true"
       android:launchMode="singleInstance">
       <intent-filter>

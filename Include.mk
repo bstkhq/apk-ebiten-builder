@@ -12,6 +12,7 @@ GO_PKG ?= mobile
 GO_SRC ?=
 VERSION ?= v1.0.0
 ROOT_DIR ?= $(abspath .)
+SCREEN_ORIENTATION ?= fullSensor
 
 # Logging / verbosity
 DEBUG ?= 0
@@ -80,8 +81,8 @@ VERSION_CODE := $(shell bash -lc '\
 
 # Names of placeholders to replace in templates: @@VAR@@
 TEMPLATE_VARS := APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY \
-	ANDROID_SDK_ROOT VERSION VERSION_CODE
-export APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY ANDROID_SDK_ROOT VERSION VERSION_CODE
+	ANDROID_SDK_ROOT VERSION VERSION_CODE SCREEN_ORIENTATION
+export APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY ANDROID_SDK_ROOT VERSION VERSION_CODE SCREEN_ORIENTATION
 
 # Which files are considered "text templates"
 TEMPLATE_FILE_GLOBS := -name "*.gradle" -o -name "*.properties" \
