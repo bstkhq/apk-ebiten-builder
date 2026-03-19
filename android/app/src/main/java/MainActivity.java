@@ -53,11 +53,12 @@ public class MainActivity extends AppCompatActivity {
         Log.e(TAG, "onCreate: ebiten view is null");
       }
 
+      EbitenExtendedView exview = getEbitenExtendedView();
       Mobile.registerIMEBridge(new IMEBridge() {
         @Override
-        public void show() {
-          Log.i(TAG, "IMEBridge.show()");
-          runOnUiThread(() -> showIme(v));
+        public void show(int opts) {
+          Log.i(TAG, "IMEBridge.show(0x" + Integer.toHexString(opts) + ")");
+          runOnUiThread(() -> showIme(exview, opts));
         }
 
         @Override
@@ -106,6 +107,10 @@ public class MainActivity extends AppCompatActivity {
     return (EbitenView) this.findViewById(R.id.ebitenview);
   }
 
+  private EbitenExtendedView getEbitenExtendedView() {
+    return (EbitenExtendedView) this.findViewById(R.id.ebitenview);
+  }
+
   private int hideSystemBars() {
     return View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
@@ -115,18 +120,66 @@ public class MainActivity extends AppCompatActivity {
         | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
   }
 
-  private void showIme(View view) {
+  private void showIme(EbitenExtendedView view, int goImeOpts) {
     if (view == null) {
       Log.e(TAG, "showIme: view is null");
       return;
     }
+
+    int type = applyCapitalization(extractInputType(goImeOpts), goImeOpts);
+    int options = extractImeOptions(goImeOpts);
+    boolean refresh = (view.currentInputType != type || view.currentImeOptions != options);
+    view.currentInputType = type;
+    view.currentImeOptions = options;
+    Log.i(TAG, "DEBUG currentInputType: 0x" + Integer.toHexString(type) + " / currentImeOptions: 0x"+ Integer.toHexString(options));
+
     view.requestFocus();
     InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
     if (imm != null) {
+      if (refresh) {
+        imm.restartInput(view);
+      }
       imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
       Log.i(TAG, "showIme: requested");
     } else {
       Log.e(TAG, "showIme: InputMethodManager is null");
+    }
+  }
+
+  private int applyCapitalization(int inputType, int goImeOpts) {
+    if ((inputType & android.text.InputType.TYPE_MASK_CLASS) != android.text.InputType.TYPE_CLASS_TEXT) {
+      return inputType;
+    }
+
+    // Only apply if the base class is TEXT
+    switch (goImeOpts & 0x00F) {
+      case 0x001: return inputType | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;
+      case 0x002: return inputType | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS;
+      case 0x003: return inputType | android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS;
+      default: return inputType;
+    }
+  }
+
+  private int extractInputType(int opts) {
+    switch (opts & 0xF00) {
+      case 0x100: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+      case 0x200: return android.text.InputType.TYPE_CLASS_NUMBER;
+      case 0x300: return android.text.InputType.TYPE_CLASS_PHONE;
+      case 0x400: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS;
+      case 0x500: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI;
+      case 0x600: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
+      default:    return android.text.InputType.TYPE_CLASS_TEXT;
+    }
+  }
+
+  private int extractImeOptions(int opts) {
+    switch (opts & 0x0F0) {
+      case 0x010: return android.view.inputmethod.EditorInfo.IME_ACTION_GO;
+      case 0x020: return android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH;
+      case 0x030: return android.view.inputmethod.EditorInfo.IME_ACTION_SEND;
+      case 0x040: return android.view.inputmethod.EditorInfo.IME_ACTION_NEXT;
+      case 0x050: return android.view.inputmethod.EditorInfo.IME_ACTION_DONE;
+      default:    return android.view.inputmethod.EditorInfo.IME_ACTION_UNSPECIFIED;
     }
   }
 
