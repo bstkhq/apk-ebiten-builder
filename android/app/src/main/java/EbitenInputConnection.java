@@ -29,7 +29,6 @@ public class EbitenInputConnection extends android.view.inputmethod.BaseInputCon
             return super.commitText(text, newCursorPosition);
         }
 
-
         for (android.view.KeyEvent event : events) {
             targetView.dispatchKeyEvent(event);
         }

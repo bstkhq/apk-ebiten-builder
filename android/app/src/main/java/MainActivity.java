@@ -125,24 +125,45 @@ public class MainActivity extends AppCompatActivity {
       Log.e(TAG, "showIme: view is null");
       return;
     }
+    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+    if (imm == null) {
+      Log.e(TAG, "showIme: InputMethodManager is null");
+      return;
+    }
 
-    int type = applyCapitalization(extractInputType(goImeOpts), goImeOpts);
+
+    int type = extractInputType(goImeOpts, isFriendlyKeyboard(imm));
+    type = applyCapitalization(type, goImeOpts);
     int options = extractImeOptions(goImeOpts);
     boolean refresh = (view.currentInputType != type || view.currentImeOptions != options);
     view.currentInputType = type;
     view.currentImeOptions = options;
-
     view.requestFocus();
-    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-    if (imm != null) {
-      if (refresh) {
-        imm.restartInput(view);
-      }
-      imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
-      Log.i(TAG, "showIme: requested");
-    } else {
-      Log.e(TAG, "showIme: InputMethodManager is null");
+
+    if (refresh) {
+      imm.restartInput(view);
     }
+    imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
+    Log.i(TAG, "showIme: requested");
+  }
+
+  // precondition: imm is not null
+  private boolean isFriendlyKeyboard(InputMethodManager imm) {
+    String currentImeId = android.provider.Settings.Secure.getString(
+        getContentResolver(), 
+        android.provider.Settings.Secure.DEFAULT_INPUT_METHOD
+    );
+    if (currentImeId == null) {
+      return false;
+    }
+    // Log.i(TAG, "IME ID: " + currentImeId);
+    // Example values:
+    //   com.samsung.android.honeyboard/.service.HoneyBoardService
+    //   com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME
+    if (currentImeId.startsWith("com.samsung.android")) {
+      return false;
+    }
+    return true;
   }
 
   private int applyCapitalization(int inputType, int goImeOpts) {
@@ -159,12 +180,19 @@ public class MainActivity extends AppCompatActivity {
     }
   }
 
-  private int extractInputType(int opts) {
-    switch (opts & 0xF00) {
-      case 0x100: return android.text.InputType.TYPE_CLASS_TEXT;
-      case 0x200: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+  private int extractInputType(int opts, boolean isFriendlyKeyboard) {
+    int bits = opts & 0xF00;
+    switch (bits) {
       case 0x300: return android.text.InputType.TYPE_CLASS_NUMBER;
       case 0x400: return android.text.InputType.TYPE_CLASS_PHONE;
+    }
+    if (!isFriendlyKeyboard) {
+      return 0;
+    }
+
+    switch (bits) {
+      case 0x100: return android.text.InputType.TYPE_CLASS_TEXT;
+      case 0x200: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE;
       case 0x500: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS;
       case 0x600: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI;
       case 0x700: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
