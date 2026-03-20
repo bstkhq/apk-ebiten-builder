@@ -7,6 +7,7 @@ import android.view.View;
 
 import android.content.Context;
 import android.view.inputmethod.InputMethodManager;
+import android.view.inputmethod.EditorInfo;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
@@ -56,9 +57,9 @@ public class MainActivity extends AppCompatActivity {
       EbitenExtendedView exview = getEbitenExtendedView();
       Mobile.registerIMEBridge(new IMEBridge() {
         @Override
-        public void show(int opts) {
-          Log.i(TAG, "IMEBridge.show(0x" + Integer.toHexString(opts) + ")");
-          runOnUiThread(() -> showIme(exview, opts));
+        public void show(int inputType, int imeOptions) {
+          Log.i(TAG, "IMEBridge.show(0x" + Integer.toHexString(inputType) + ", 0x" + Integer.toHexString(imeOptions) + ")");
+          runOnUiThread(() -> showIme(exview, inputType, imeOptions));
         }
 
         @Override
@@ -120,7 +121,7 @@ public class MainActivity extends AppCompatActivity {
         | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
   }
 
-  private void showIme(EbitenExtendedView view, int goImeOpts) {
+  private void showIme(EbitenExtendedView view, int inputType, int imeOptions) {
     if (view == null) {
       Log.e(TAG, "showIme: view is null");
       return;
@@ -132,12 +133,26 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    int type = extractInputType(goImeOpts, isFriendlyKeyboard(imm));
-    type = applyCapitalization(type, goImeOpts);
-    int options = extractImeOptions(goImeOpts);
-    boolean refresh = (view.currentInputType != type || view.currentImeOptions != options);
-    view.currentInputType = type;
-    view.currentImeOptions = options;
+    if (!isFriendlyKeyboard(imm)) {
+      // clear capitalization, autocomplete, multiline... flags
+      inputType = inputType & ~0xF000;
+
+      // get base class
+      final int TEXT_CLASS = android.text.InputType.TYPE_CLASS_TEXT;
+      int baseClass = inputType & android.text.InputType.TYPE_MASK_CLASS;
+    
+      final int PASSWORD = android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
+      if (baseClass == TEXT_CLASS && (inputType & PASSWORD) != PASSWORD) {
+        inputType = 0;
+      }
+    }
+
+    // always request NO_PERSONALIZED_LEARNING
+    imeOptions |= android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
+
+    boolean refresh = (view.currentInputType != inputType || view.currentImeOptions != imeOptions);
+    view.currentInputType = inputType;
+    view.currentImeOptions = imeOptions;
     view.requestFocus();
 
     if (refresh) {
@@ -164,51 +179,6 @@ public class MainActivity extends AppCompatActivity {
       return false;
     }
     return true;
-  }
-
-  private int applyCapitalization(int inputType, int goImeOpts) {
-    if ((inputType & android.text.InputType.TYPE_MASK_CLASS) != android.text.InputType.TYPE_CLASS_TEXT) {
-      return inputType;
-    }
-
-    // Only apply if the base class is TEXT
-    switch (goImeOpts & 0x00F) {
-      case 0x001: return inputType | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;
-      case 0x002: return inputType | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS;
-      case 0x003: return inputType | android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS;
-      default: return inputType;
-    }
-  }
-
-  private int extractInputType(int opts, boolean isFriendlyKeyboard) {
-    int bits = opts & 0xF00;
-    switch (bits) {
-      case 0x300: return android.text.InputType.TYPE_CLASS_NUMBER;
-      case 0x400: return android.text.InputType.TYPE_CLASS_PHONE;
-    }
-    if (!isFriendlyKeyboard) {
-      return 0;
-    }
-
-    switch (bits) {
-      case 0x100: return android.text.InputType.TYPE_CLASS_TEXT;
-      case 0x200: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE;
-      case 0x500: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS;
-      case 0x600: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI;
-      case 0x700: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
-      default:    return 0;
-    }
-  }
-
-  private int extractImeOptions(int opts) {
-    switch (opts & 0x0F0) {
-      case 0x010: return android.view.inputmethod.EditorInfo.IME_ACTION_GO;
-      case 0x020: return android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH;
-      case 0x030: return android.view.inputmethod.EditorInfo.IME_ACTION_SEND;
-      case 0x040: return android.view.inputmethod.EditorInfo.IME_ACTION_NEXT;
-      case 0x050: return android.view.inputmethod.EditorInfo.IME_ACTION_DONE;
-      default:    return android.view.inputmethod.EditorInfo.IME_ACTION_UNSPECIFIED;
-    }
   }
 
   private void hideIme(View view) {
