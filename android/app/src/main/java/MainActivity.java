@@ -147,9 +147,6 @@ public class MainActivity extends AppCompatActivity {
       }
     }
 
-    // always request NO_PERSONALIZED_LEARNING
-    imeOptions |= android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
-
     boolean refresh = (view.currentInputType != inputType || view.currentImeOptions != imeOptions);
     view.currentInputType = inputType;
     view.currentImeOptions = imeOptions;
