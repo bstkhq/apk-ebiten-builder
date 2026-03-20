@@ -131,7 +131,6 @@ public class MainActivity extends AppCompatActivity {
     boolean refresh = (view.currentInputType != type || view.currentImeOptions != options);
     view.currentInputType = type;
     view.currentImeOptions = options;
-    Log.i(TAG, "DEBUG currentInputType: 0x" + Integer.toHexString(type) + " / currentImeOptions: 0x"+ Integer.toHexString(options));
 
     view.requestFocus();
     InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -162,13 +161,14 @@ public class MainActivity extends AppCompatActivity {
 
   private int extractInputType(int opts) {
     switch (opts & 0xF00) {
-      case 0x100: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE;
-      case 0x200: return android.text.InputType.TYPE_CLASS_NUMBER;
-      case 0x300: return android.text.InputType.TYPE_CLASS_PHONE;
-      case 0x400: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS;
-      case 0x500: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI;
-      case 0x600: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
-      default:    return android.text.InputType.TYPE_CLASS_TEXT;
+      case 0x100: return android.text.InputType.TYPE_CLASS_TEXT;
+      case 0x200: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+      case 0x300: return android.text.InputType.TYPE_CLASS_NUMBER;
+      case 0x400: return android.text.InputType.TYPE_CLASS_PHONE;
+      case 0x500: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS;
+      case 0x600: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI;
+      case 0x700: return android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
+      default:    return 0;
     }
   }
 
