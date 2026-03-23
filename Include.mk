@@ -6,7 +6,7 @@ include $(_THIS_DIR)/Dependencies.mk
 
 # Configuration variables
 APP_NAME ?= Ebiten Android
-APP_ID ?= games.funtastik.kiosk
+APP_ID ?= games.orgname.project
 MAIN_ACTIVITY ?= .MainActivity
 GO_PKG ?= mobile
 GO_SRC ?=

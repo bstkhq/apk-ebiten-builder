@@ -5,7 +5,7 @@
   android:layout_height="match_parent"
   android:keepScreenOn="true"
   tools:context=".MainActivity">
-  <@@APP_ID@@.EbitenViewWithErrorHandling
+  <@@APP_ID@@.EbitenExtendedView
         android:id="@+id/ebitenview"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
