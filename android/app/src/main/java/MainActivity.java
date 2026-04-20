@@ -28,6 +28,15 @@ public class MainActivity extends AppCompatActivity {
     super.onCreate(savedInstanceState);
 
     try {
+      String androidId = android.provider.Settings.Secure.getString(
+          getContentResolver(),
+          android.provider.Settings.Secure.ANDROID_ID
+      );
+
+      long id = Long.parseUnsignedLong(androidId, 16) & 0x7FFFFFFFFFFFFFFFL;
+      Mobile.setAndroidID(id);
+      Log.i(TAG, "onCreate: androidID = " + androidId + " -> " + id);
+
       setContentView(R.layout.activity_main);
       Log.i(TAG, "onCreate: setContentView ok");
 
