@@ -1,4 +1,3 @@
-
 _THIS_MK := $(abspath $(lastword $(MAKEFILE_LIST)))
 _THIS_DIR := $(dir $(_THIS_MK))
 
@@ -14,6 +13,11 @@ VERSION ?= v1.0.0
 ROOT_DIR ?= $(abspath .)
 SCREEN_ORIENTATION ?= fullSensor
 LOG_TAG = GoLog
+
+# Optional Go ldflags passed to `ebitenmobile bind` for compile-time injection
+# of variables. Example:
+#   GO_LDFLAGS="-X 'mypkg/env.DefaultURL=http://x.y:8080'"
+GO_LDFLAGS ?=
 
 
 # Logging / verbosity
@@ -131,6 +135,7 @@ info:
 	@echo "    MAIN_ACTIVITY : $(MAIN_ACTIVITY)"
 	@echo "    JAVA_PKG      : $(JAVA_PKG)"
 	@echo "    GO_SRC        : $(GO_SRC)"
+	@echo "    GO_LDFLAGS    : $(GO_LDFLAGS)"
 	@echo "    ANDROID_SRC   : $(ANDROID_SRC)"
 	@echo "    ANDROID_DIR   : $(ANDROID_DIR)"
 	@echo "    VERSION       : $(VERSION)"
@@ -170,7 +175,9 @@ $(AAR_PATH):
 	$(call LOG,Compiling AAR library from golang source code)
 	$(Q)mkdir -p $(AAR_DIR)
 	$(Q)cd "$(GO_SRC)" && \
-		ebitenmobile bind -target android -javapkg $(JAVA_PKG) -o "$(AAR_PATH)" .
+		ebitenmobile bind -target android -javapkg $(JAVA_PKG) \
+		$(if $(strip $(GO_LDFLAGS)),-ldflags "$(GO_LDFLAGS)") \
+		-o "$(AAR_PATH)" .
 
 build: generate compile
 	$(call LOG,Building debug APK file)
