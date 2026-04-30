@@ -86,6 +86,30 @@ public class MainActivity extends AppCompatActivity {
   }
 
   @Override
+  public void onWindowFocusChanged(boolean hasFocus) {
+    super.onWindowFocusChanged(hasFocus);
+    Log.i(TAG, "focus change: " + Boolean.toString(hasFocus));
+  }
+
+  @Override
+  protected void onStart() {
+    Log.i(TAG, "onStart");
+    super.onStart();
+  }
+
+  @Override
+  protected void onStop() {
+    Log.i(TAG, "onStop");
+    super.onStop();
+  }
+
+  @Override
+  protected void onDestroy() {
+    Log.i(TAG, "onDestroy");
+    super.onDestroy();
+  }
+
+  @Override
   protected void onPause() {
     super.onPause();
     
