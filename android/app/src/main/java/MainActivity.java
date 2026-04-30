@@ -51,7 +51,7 @@ public class MainActivity extends AppCompatActivity {
       Seq.setContext(getApplicationContext());
       Log.i(TAG, "onCreate: Seq.setContext ok");
 
-      EbitenView v = getEbitenView();
+      EbitenExtendedView v = getEbitenView();
       Log.i(TAG, "onCreate: ebiten view = " + v);
 
       if (v != null) {
@@ -63,18 +63,17 @@ public class MainActivity extends AppCompatActivity {
         Log.e(TAG, "onCreate: ebiten view is null");
       }
 
-      EbitenExtendedView exview = getEbitenExtendedView();
       Mobile.registerIMEBridge(new IMEBridge() {
         @Override
         public void show(int inputType, int imeOptions) {
           Log.i(TAG, "IMEBridge.show(0x" + Integer.toHexString(inputType) + ", 0x" + Integer.toHexString(imeOptions) + ")");
-          runOnUiThread(() -> showIme(exview, inputType, imeOptions));
+          runOnUiThread(() -> showIme(inputType, imeOptions));
         }
 
         @Override
         public void hide() {
           Log.i(TAG, "IMEBridge.hide()");
-          runOnUiThread(() -> hideIme(v));
+          runOnUiThread(() -> hideIme());
         }
       });
 
@@ -87,10 +86,34 @@ public class MainActivity extends AppCompatActivity {
   }
 
   @Override
+  public void onWindowFocusChanged(boolean hasFocus) {
+    super.onWindowFocusChanged(hasFocus);
+    Log.i(TAG, "focus change: " + Boolean.toString(hasFocus));
+  }
+
+  @Override
+  protected void onStart() {
+    Log.i(TAG, "onStart");
+    super.onStart();
+  }
+
+  @Override
+  protected void onStop() {
+    Log.i(TAG, "onStop");
+    super.onStop();
+  }
+
+  @Override
+  protected void onDestroy() {
+    Log.i(TAG, "onDestroy");
+    super.onDestroy();
+  }
+
+  @Override
   protected void onPause() {
-    Log.i(TAG, "onPause: enter");
     super.onPause();
-    EbitenView view = getEbitenView();
+    
+    EbitenExtendedView view = getEbitenView();
     if (view != null) {
       view.suspendGame();
       Log.i(TAG, "onPause: suspendGame ok");
@@ -98,12 +121,11 @@ public class MainActivity extends AppCompatActivity {
       Log.e(TAG, "onPause: ebiten view is null");
     }
   }
-
+  
   @Override
   protected void onResume() {
-    Log.i(TAG, "onResume: enter");
     super.onResume();
-    EbitenView view = getEbitenView();
+    EbitenExtendedView view = getEbitenView();
 
     if (view != null) {
       view.resumeGame();
@@ -113,11 +135,7 @@ public class MainActivity extends AppCompatActivity {
     }
   }
 
-  private EbitenView getEbitenView() {
-    return (EbitenView) this.findViewById(R.id.ebitenview);
-  }
-
-  private EbitenExtendedView getEbitenExtendedView() {
+  private EbitenExtendedView getEbitenView() {
     return (EbitenExtendedView) this.findViewById(R.id.ebitenview);
   }
 
@@ -130,17 +148,18 @@ public class MainActivity extends AppCompatActivity {
         | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
   }
 
-  private void showIme(EbitenExtendedView view, int inputType, int imeOptions) {
+  private void showIme(int inputType, int imeOptions) {
+    EbitenExtendedView view = getEbitenView();
     if (view == null) {
       Log.e(TAG, "showIme: view is null");
       return;
     }
+    
     InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
     if (imm == null) {
       Log.e(TAG, "showIme: InputMethodManager is null");
       return;
     }
-
 
     if (!isFriendlyKeyboard(imm)) {
       // clear capitalization, autocomplete, multiline... flags
@@ -160,11 +179,10 @@ public class MainActivity extends AppCompatActivity {
     view.currentInputType = inputType;
     view.currentImeOptions = imeOptions;
     view.requestFocus();
-
     if (refresh) {
       imm.restartInput(view);
     }
-    imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
+    imm.showSoftInput(view, 0);
     Log.i(TAG, "showIme: requested");
   }
 
@@ -187,11 +205,15 @@ public class MainActivity extends AppCompatActivity {
     return true;
   }
 
-  private void hideIme(View view) {
+  private void hideIme() {
+    EbitenExtendedView view = getEbitenView();
     if (view == null) {
-      Log.e(TAG, "hideIme: view is null");
+      Log.e(TAG, "hideIme: failed to find EbitenExtendedView");
       return;
     }
+    view.currentInputType = -1;
+    view.currentImeOptions = -1;
+    
     InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
     if (imm != null) {
       imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
