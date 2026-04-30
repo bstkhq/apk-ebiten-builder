@@ -37,6 +37,15 @@ public class MainActivity extends AppCompatActivity {
       Mobile.setAndroidID(id);
       Log.i(TAG, "onCreate: androidID = " + androidId + " -> " + id);
 
+      try {
+        String timezone = java.util.TimeZone.getDefault().getID();
+        Mobile.class.getMethod("setTimezone", String.class).invoke(null, timezone);
+      } catch (NoSuchMethodException e) {
+        Log.i(TAG, "onCreate: setTimezone(string) not declared, skipping");
+      } catch (Exception e) {
+        Log.e(TAG, "onCreate: setTimezone error", e);
+      }
+
       setContentView(R.layout.activity_main);
       Log.i(TAG, "onCreate: setContentView ok");
 
