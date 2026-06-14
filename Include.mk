@@ -19,6 +19,16 @@ LOG_TAG = GoLog
 #   GO_LDFLAGS="-X 'mypkg/env.DefaultURL=http://x.y:8080'"
 GO_LDFLAGS ?=
 
+# Android build target(s) for `ebitenmobile bind`. Default: arm64 only
+# (modern tablets / kiosks). For wider device coverage pass a comma-separated
+# list, e.g.:
+#   make build ANDROID_TARGET=android/arm64,android/arm
+# x86/x86_64 are only needed for emulators and bloat the APK ~2x each.
+ANDROID_TARGET ?= android/arm64
+
+# Strip symbol table and DWARF (-s -w) always; user GO_LDFLAGS appended on top.
+GO_BUILD_LDFLAGS := -s -w $(GO_LDFLAGS)
+
 
 # Logging / verbosity
 DEBUG ?= 0
@@ -136,6 +146,7 @@ info:
 	@echo "    JAVA_PKG      : $(JAVA_PKG)"
 	@echo "    GO_SRC        : $(GO_SRC)"
 	@echo "    GO_LDFLAGS    : $(GO_LDFLAGS)"
+	@echo "    ANDROID_TARGET: $(ANDROID_TARGET)"
 	@echo "    ANDROID_SRC   : $(ANDROID_SRC)"
 	@echo "    ANDROID_DIR   : $(ANDROID_DIR)"
 	@echo "    VERSION       : $(VERSION)"
@@ -172,11 +183,11 @@ $(ANDROID_DIR):
 compile: $(AAR_PATH)
 
 $(AAR_PATH):
-	$(call LOG,Compiling AAR library from golang source code)
+	$(call LOG,Compiling AAR library from golang source code (target: $(ANDROID_TARGET)))
 	$(Q)mkdir -p $(AAR_DIR)
 	$(Q)cd "$(GO_SRC)" && \
-		ebitenmobile bind -target android -javapkg $(JAVA_PKG) \
-		$(if $(strip $(GO_LDFLAGS)),-ldflags "$(GO_LDFLAGS)") \
+		ebitenmobile bind -target $(ANDROID_TARGET) -javapkg $(JAVA_PKG) \
+		-ldflags "$(GO_BUILD_LDFLAGS)" \
 		-o "$(AAR_PATH)" .
 
 build: generate compile
