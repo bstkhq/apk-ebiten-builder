@@ -53,6 +53,21 @@ public class EbitenInputConnection extends android.view.inputmethod.BaseInputCon
     }
 
     @Override
+    public boolean replaceText(int start, int end, CharSequence text, int newCursorPosition, android.view.inputmethod.TextAttribute textAttribute) {
+        int cut = Math.max(end - start, 0);
+        if (cut > 0) {
+            sendHardwareKey(android.view.KeyEvent.KEYCODE_DEL);
+            cut -= 1;
+        }
+        if (cut > 0) {
+            text = text.subSequence(Math.min(cut, text.length()), text.length());
+        }
+        dispatchTextEvents(text);
+        
+        return false;
+    }
+
+    @Override
     public void closeConnection() {
         this.composing = "";
         this.composingCommitted = 0;
@@ -60,7 +75,7 @@ public class EbitenInputConnection extends android.view.inputmethod.BaseInputCon
     }
 
     @Override
-    public boolean sendKeyEvent(android.view.KeyEvent event) {
+    public boolean sendKeyEvent(KeyEvent event) {
         if (this.silenced) {
             return true;
         }
@@ -115,32 +130,28 @@ public class EbitenInputConnection extends android.view.inputmethod.BaseInputCon
         }
 
         // convert the string into individual KeyEvents that Ebitengine can catch
-        android.view.KeyEvent[] events = getKeyEvents(kcm, text.toString());
+        KeyEvent[] events = getKeyEvents(this.kcm, text.toString());
         if (events == null) {
             return;
         }
 
-        for (android.view.KeyEvent event : events) {
-            targetView.dispatchKeyEvent(event);
+        for (KeyEvent event : events) {
+            sendKeyEvent(event);
         }
     }
 
     private KeyEvent[] getKeyEvents(KeyCharacterMap kcm, String s) {
-        KeyEvent[] events = kcm.getEvents(s.toCharArray());
+        KeyEvent[] events = this.kcm.getEvents(s.toCharArray());
         if (events != null) {
             return events;
         }
 
-        long now = android.os.SystemClock.uptimeMillis();
-        int i = 0;
-        while (i < s.length()) {
-            int codePoint = s.codePointAt(i);
-            int charCount = Character.charCount(codePoint);
-            String character = s.substring(i, i + charCount);
-            KeyEvent event = new KeyEvent(now, character, KeyCharacterMap.VIRTUAL_KEYBOARD, 0);
-            i += charCount;
-        }
+        KeyEvent event = new KeyEvent(android.os.SystemClock.uptimeMillis(), s, KeyCharacterMap.VIRTUAL_KEYBOARD, 0);
+        return new KeyEvent[] {event};
+    }
 
-        return events;
+    private void sendHardwareKey(int keyCode) {
+        targetView.dispatchKeyEvent(new KeyEvent(android.view.KeyEvent.ACTION_DOWN, keyCode));
+        targetView.dispatchKeyEvent(new KeyEvent(android.view.KeyEvent.ACTION_UP, keyCode));
     }
 }
