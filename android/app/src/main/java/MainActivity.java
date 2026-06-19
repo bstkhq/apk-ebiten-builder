@@ -84,6 +84,11 @@ public class MainActivity extends AppCompatActivity {
           Log.i(TAG, "IMEBridge.hide()");
           runOnUiThread(() -> hideIme());
         }
+
+        @Override
+        public String composing() {
+          return getComposingText();
+        }
       });
 
       Log.i(TAG, "onCreate: IME bridge registered");
@@ -170,48 +175,30 @@ public class MainActivity extends AppCompatActivity {
       return;
     }
 
-    if (!isFriendlyKeyboard(imm)) {
-      // clear capitalization, autocomplete, multiline... flags
-      inputType = inputType & ~0xF000;
-
-      // get base class
-      final int TEXT_CLASS = android.text.InputType.TYPE_CLASS_TEXT;
-      int baseClass = inputType & android.text.InputType.TYPE_MASK_CLASS;
-    
-      final int PASSWORD = android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
-      if (baseClass == TEXT_CLASS && (inputType & PASSWORD) != PASSWORD) {
-        inputType = 0;
-      }
-    }
-
-    boolean refresh = (view.currentInputType != inputType || view.currentImeOptions != imeOptions);
-    view.currentInputType = inputType;
-    view.currentImeOptions = imeOptions;
+    view.prepareShowIME(inputType, imeOptions, keyboardCompatibility());
     view.requestFocus();
-    if (refresh) {
-      imm.restartInput(view);
-    }
+    imm.restartInput(view);
     imm.showSoftInput(view, 0);
     Log.i(TAG, "showIme: requested");
   }
 
-  // precondition: imm is not null
-  private boolean isFriendlyKeyboard(InputMethodManager imm) {
+  // returns "default", "samsung", "raw"
+  private String keyboardCompatibility() {
     String currentImeId = android.provider.Settings.Secure.getString(
         getContentResolver(), 
         android.provider.Settings.Secure.DEFAULT_INPUT_METHOD
     );
     if (currentImeId == null) {
-      return false;
+      return "raw";
     }
     // Log.i(TAG, "IME ID: " + currentImeId);
     // Example values:
     //   com.samsung.android.honeyboard/.service.HoneyBoardService
     //   com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME
     if (currentImeId.startsWith("com.samsung.android")) {
-      return false;
+      return "samsung";
     }
-    return true;
+    return "default";
   }
 
   private void hideIme() {
@@ -220,9 +207,8 @@ public class MainActivity extends AppCompatActivity {
       Log.e(TAG, "hideIme: failed to find EbitenExtendedView");
       return;
     }
-    view.currentInputType = -1;
-    view.currentImeOptions = -1;
     
+    view.prepareHideIME();
     InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
     if (imm != null) {
       imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
@@ -230,6 +216,16 @@ public class MainActivity extends AppCompatActivity {
     } else {
       Log.e(TAG, "hideIme: InputMethodManager is null");
     }
+  }
+
+  private String getComposingText() {
+    EbitenExtendedView view = getEbitenView();
+    if (view == null) {
+      Log.e(TAG, "getComposingText: failed to find EbitenExtendedView");
+      return "";
+    }
+
+    return view.getComposingText();
   }
 
   private void hideSystemBarsApi30() {

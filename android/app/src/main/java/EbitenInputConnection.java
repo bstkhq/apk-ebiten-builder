@@ -4,6 +4,8 @@ import android.view.View;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 
+import android.util.Log;
+
 // EbitenInputConnection extends BaseInputConnection in order to intercept
 // and dispatch some events that are not normally passed as key events. One
 // good example is the ".com" special key shown on email keyboards.
@@ -12,74 +14,144 @@ public class EbitenInputConnection extends android.view.inputmethod.BaseInputCon
 
     private View targetView;
     private final android.view.KeyCharacterMap kcm;
-    private boolean muteNextCommit; // we have been asked something not supported by Ebitengine internals
+    private String composing = "";
+    private int composingCommitted;
+    private boolean silenced;
 
-    public EbitenInputConnection(View targetView, boolean fullEditor) {
-        super(targetView, fullEditor);
+    public EbitenInputConnection(View targetView) {
+        super(targetView, false);
         this.targetView = targetView;
         this.kcm = android.view.KeyCharacterMap.load(android.view.KeyCharacterMap.VIRTUAL_KEYBOARD);
     }
 
+    public String getComposingText() {
+        return this.composing.substring(Math.min(this.composingCommitted, this.composing.length()));
+    }
+
+    // silence makes the connection stop sending key events
+    public void silence() {
+        this.silenced = true;
+    }
+
     @Override
     public boolean commitText(CharSequence text, int newCursorPosition) {
-        if (text == null || text.length() == 0) {
-            return super.commitText(text, newCursorPosition);
-        }
-
-        char[] letters = text.toString().toCharArray();
-        if (this.muteNextCommit && letters.length > 0) {
-            this.muteNextCommit = false;
-            if (letters[letters.length-1] == ' ') {
-                letters = new char[]{' '};
-            } else {
-                letters = new char[0];
-            }
-        }
-
-        // convert the string into individual KeyEvents that Ebitengine can catch
-        android.view.KeyEvent[] events = kcm.getEvents(letters);
-        if (events == null) {
-            return super.commitText(text, newCursorPosition);
-        }
-
-        for (android.view.KeyEvent event : events) {
-            targetView.dispatchKeyEvent(event);
-        }
+        this.composing = "";
+        this.composingCommitted = 0;
         return super.commitText(text, newCursorPosition);
     }
 
     @Override
-    public boolean setComposingRegion(int start, int end) {
-        this.muteNextCommit = true;
-        return super.setComposingRegion(start, end);
-    }
-
-    @Override
     public boolean setComposingText(CharSequence text, int newCursorPosition) {
-        // NOTICE: ideally we should have a bridge to get "ComposingText"
-        // and show it underlined while it's being built.
-        this.muteNextCommit = false; // bypass muting for composing editors
+        this.composing = text.toString();
         return super.setComposingText(text, newCursorPosition);
     }
 
     @Override
-    public boolean deleteSurroundingText(int beforeLength, int afterLength) {
-        if (beforeLength + afterLength > 1) {
-            this.muteNextCommit = true;
-            return super.deleteSurroundingText(beforeLength, afterLength);
-        }
-        
-        for (int i = 0; i < beforeLength; i++) {
+    public boolean setComposingRegion(int start, int end) {
+        this.composingCommitted = Math.max(0, end-start);
+        return false; // don't allow super to continue with more complex composing regions
+    }
+
+    @Override
+    public boolean replaceText(int start, int end, CharSequence text, int newCursorPosition, android.view.inputmethod.TextAttribute textAttribute) {
+        int cut = Math.max(end - start, 0);
+        if (cut > 0) {
             sendHardwareKey(android.view.KeyEvent.KEYCODE_DEL);
+            cut -= 1;
         }
-        for (int i = 0; i < afterLength; i++) {
-            sendHardwareKey(android.view.KeyEvent.KEYCODE_FORWARD_DEL);
+        if (cut > 0) {
+            text = text.subSequence(Math.min(cut, text.length()), text.length());
         }
-        return super.deleteSurroundingText(beforeLength, afterLength);
+        dispatchTextEvents(text);
+        
+        return false;
+    }
+
+    @Override
+    public void closeConnection() {
+        this.composing = "";
+        this.composingCommitted = 0;
+        super.closeConnection();
+    }
+
+    @Override
+    public boolean sendKeyEvent(KeyEvent event) {
+        if (this.silenced) {
+            return true;
+        }
+
+        // samsung reports left/right arrows as undefined source, so they are not
+        // caught by default. The events can be made detectable by updating the
+        // source, but... samsung only fires left/right a few times anyway due to
+        // internal state, so this is left disabled to prevent even more inconsistent
+        // behavior. If that is improved, the following code can be restored.
+        if (event.getSource() == android.view.InputDevice.SOURCE_UNKNOWN && event.getDeviceId() != KeyCharacterMap.VIRTUAL_KEYBOARD) {
+            // returning false prevents "ghost events" that we can't react to from
+            // going through and having minor side effects
+            return false; // event.setSource(android.view.InputDevice.SOURCE_KEYBOARD);
+        }
+
+        // edge case: when composingCommitted applies and the composing text is
+        // passed as an ACTION_MULTIPLE event, the contents can be incorrect. This
+        // can happen for example when typing some@address and then pressing the
+        // .com button, or pressing www. and then continuing writing, which trigger
+        // multiple ACTION_MULTIPLE and with a modified composing region. This has
+        // to be specially taken into account during finishComposing.
+        if (this.composingCommitted > 0 && event.getAction() == KeyEvent.ACTION_MULTIPLE) {
+            if (this.composing.equals(event.getCharacters())) {
+                event = new KeyEvent(event.getDownTime(), getComposingText(), KeyCharacterMap.VIRTUAL_KEYBOARD, 0);
+            }
+        }
+
+        // when pressing left/right, commit composing text first
+        if (this.composing != null && this.composing.length() > 0 && event.getAction() == KeyEvent.ACTION_DOWN) {
+            int kc = event.getKeyCode();
+            if (kc == KeyEvent.KEYCODE_DPAD_LEFT || kc == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                finishComposingText();
+            }
+        }
+
+        // Log.i(TAG, "send key event " + event.toString());
+        return super.sendKeyEvent(event);
+    }
+
+    @Override
+    public boolean finishComposingText () {
+        // allow sendKeyEvents to be called before clearing composing
+        boolean ok = super.finishComposingText(); 
+        this.composing = "";
+        this.composingCommitted = 0;
+        return ok;
+    }
+
+    private void dispatchTextEvents(CharSequence text) {
+        if (text == null || text.length() == 0) {
+            return;
+        }
+
+        // convert the string into individual KeyEvents that Ebitengine can catch
+        KeyEvent[] events = getKeyEvents(this.kcm, text.toString());
+        if (events == null) {
+            return;
+        }
+
+        for (KeyEvent event : events) {
+            sendKeyEvent(event);
+        }
+    }
+
+    private KeyEvent[] getKeyEvents(KeyCharacterMap kcm, String s) {
+        KeyEvent[] events = this.kcm.getEvents(s.toCharArray());
+        if (events != null) {
+            return events;
+        }
+
+        KeyEvent event = new KeyEvent(android.os.SystemClock.uptimeMillis(), s, KeyCharacterMap.VIRTUAL_KEYBOARD, 0);
+        return new KeyEvent[] {event};
     }
 
     private void sendHardwareKey(int keyCode) {
-        targetView.dispatchKeyEvent(new android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, keyCode));
-        targetView.dispatchKeyEvent(new android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, keyCode));
+        targetView.dispatchKeyEvent(new KeyEvent(android.view.KeyEvent.ACTION_DOWN, keyCode));
+        targetView.dispatchKeyEvent(new KeyEvent(android.view.KeyEvent.ACTION_UP, keyCode));
     }
 }
