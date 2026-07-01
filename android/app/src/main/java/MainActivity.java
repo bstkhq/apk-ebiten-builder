@@ -57,6 +57,9 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, "onCreate: hideSystemBarsLegacy ok");
       }
 
+      // prevent canvas size from changing due to IME or system bar insets
+      WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
       Seq.setContext(getApplicationContext());
       Log.i(TAG, "onCreate: Seq.setContext ok");
 
