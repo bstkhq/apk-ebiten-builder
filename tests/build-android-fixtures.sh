@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+: "${ANDROID_SDK_ROOT:?ANDROID_SDK_ROOT must point at an installed Android SDK}"
+
+build_parent="${repo_dir}/.build/tests/android-fixtures"
+mkdir -p "${build_parent}"
+
+build_fixture() {
+  local fixture="$1"
+  local backup="$2"
+  local root_dir="${build_parent}/${fixture}"
+
+  mkdir -p "${root_dir}"
+  if [[ ! -e "${root_dir}/android" ]]; then
+    ln -s "${repo_dir}/android" "${root_dir}/android"
+  fi
+
+  make --no-print-directory -f "${repo_dir}/Include.mk" clean build \
+    ROOT_DIR="${root_dir}" \
+    GO_SRC="${repo_dir}/tests/fixtures/${fixture}" \
+    APP_NAME="Builder ${fixture} fixture" \
+    APP_ID="games.example.builder.${fixture}" \
+    ALLOW_BACKUP="${backup}" \
+    SCREEN_ORIENTATION=landscape \
+    ANDROID_TARGET="${ANDROID_TARGET:-android/amd64}" \
+    VERSION="v0.0.1-${fixture}" \
+    NO_COLOR=1
+
+  test -s "${root_dir}/.build/android/app/libs/game.aar"
+  test -s "${root_dir}/.build/android/app/build/outputs/apk/debug/app-debug.apk"
+}
+
+build_fixture legacy true
+build_fixture hooks false
+
+echo "build-android-fixtures: legacy and hooks APKs passed"

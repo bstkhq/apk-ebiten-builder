@@ -17,4 +17,13 @@
       <item name="android:windowFullscreen">true</item>
       <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
+
+    <!-- Visible only for the few milliseconds required to replace the process. -->
+    <style name="RestartTheme" parent="Theme.AppCompat.NoActionBar">
+      <item name="android:windowNoTitle">true</item>
+      <item name="android:windowIsTranslucent">true</item>
+      <item name="android:windowBackground">@android:color/transparent</item>
+      <item name="android:windowDisablePreview">true</item>
+      <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>

@@ -3,12 +3,14 @@ package @@APP_ID@@;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 
 import android.content.Context;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.EditorInfo;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -21,6 +23,10 @@ import @@JAVA_PKG@@.@@GO_PKG@@.IMEBridge;
 
 public class MainActivity extends AppCompatActivity {
   private static final String TAG = "@@LOG_TAG@@";
+
+  private OptionalMobileHooks.BackHandler optionalBackHandler;
+  private boolean backKeyInProgress;
+  private boolean backKeyConsumed;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +68,9 @@ public class MainActivity extends AppCompatActivity {
 
       Seq.setContext(getApplicationContext());
       Log.i(TAG, "onCreate: Seq.setContext ok");
+
+      registerOptionalPlatformBridge();
+      registerOptionalBackHandler();
 
       EbitenExtendedView v = getEbitenView();
       Log.i(TAG, "onCreate: ebiten view = " + v);
@@ -106,6 +115,35 @@ public class MainActivity extends AppCompatActivity {
   public void onWindowFocusChanged(boolean hasFocus) {
     super.onWindowFocusChanged(hasFocus);
     Log.i(TAG, "focus change: " + Boolean.toString(hasFocus));
+  }
+
+  @Override
+  public boolean dispatchKeyEvent(KeyEvent event) {
+    if (event.getKeyCode() != KeyEvent.KEYCODE_BACK || optionalBackHandler == null) {
+      return super.dispatchKeyEvent(event);
+    }
+
+    if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+      backKeyInProgress = true;
+      backKeyConsumed = optionalBackHandler.onBackPressed();
+      if (backKeyConsumed) {
+        Log.i(TAG, "Back key consumed by Go");
+      }
+    }
+
+    if (backKeyConsumed) {
+      if (event.getAction() == KeyEvent.ACTION_UP) {
+        backKeyInProgress = false;
+        backKeyConsumed = false;
+      }
+      return true;
+    }
+
+    boolean handled = super.dispatchKeyEvent(event);
+    if (event.getAction() == KeyEvent.ACTION_UP) {
+      backKeyInProgress = false;
+    }
+    return handled;
   }
 
   @Override
@@ -154,6 +192,51 @@ public class MainActivity extends AppCompatActivity {
 
   private EbitenExtendedView getEbitenView() {
     return (EbitenExtendedView) this.findViewById(R.id.ebitenview);
+  }
+
+  private void registerOptionalPlatformBridge() {
+    boolean registered = OptionalMobileHooks.registerPlatformBridge(
+        Mobile.class,
+        new AndroidPlatformServices(getApplicationContext()));
+    if (registered) {
+      Log.i(TAG, "onCreate: optional platform bridge registered");
+    } else {
+      Log.i(TAG, "onCreate: optional platform bridge not declared, skipping");
+    }
+  }
+
+  private void registerOptionalBackHandler() {
+    optionalBackHandler = OptionalMobileHooks.backHandler(Mobile.class);
+    if (optionalBackHandler == null) {
+      Log.i(TAG, "onCreate: optional Back hook not declared, preserving default behavior");
+      return;
+    }
+
+    getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+      @Override
+      public void handleOnBackPressed() {
+        // A hardware Back key may reach the dispatcher only after
+        // dispatchKeyEvent already asked Go. Reuse that decision so a false
+        // hook has no duplicate side effects.
+        boolean consumed = backKeyInProgress
+            ? backKeyConsumed
+            : optionalBackHandler.onBackPressed();
+        if (consumed) {
+          Log.i(TAG, "Back consumed by Go");
+          return;
+        }
+
+        // Temporarily disable this callback so the dispatcher reaches the
+        // Activity's pre-existing fallback instead of recursing into Go.
+        setEnabled(false);
+        try {
+          getOnBackPressedDispatcher().onBackPressed();
+        } finally {
+          setEnabled(true);
+        }
+      }
+    });
+    Log.i(TAG, "onCreate: optional Back hook registered");
   }
 
   private int hideSystemBars() {

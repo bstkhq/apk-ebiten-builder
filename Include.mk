@@ -12,6 +12,7 @@ GO_SRC ?=
 VERSION ?= v1.0.0
 ROOT_DIR ?= $(abspath .)
 SCREEN_ORIENTATION ?= fullSensor
+ALLOW_BACKUP ?= true
 LOG_TAG = GoLog
 
 # Optional Go ldflags passed to `ebitenmobile bind` for compile-time injection
@@ -97,9 +98,9 @@ VERSION_CODE := $(shell bash -lc '\
 
 # Names of placeholders to replace in templates: @@VAR@@
 TEMPLATE_VARS := APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY \
-	ANDROID_SDK_ROOT VERSION VERSION_CODE SCREEN_ORIENTATION LOG_TAG
+	ANDROID_SDK_ROOT VERSION VERSION_CODE SCREEN_ORIENTATION ALLOW_BACKUP LOG_TAG
 export APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY ANDROID_SDK_ROOT VERSION \
-	VERSION_CODE SCREEN_ORIENTATION LOG_TAG
+	VERSION_CODE SCREEN_ORIENTATION ALLOW_BACKUP LOG_TAG
 
 # Which files are considered "text templates"
 TEMPLATE_FILE_GLOBS := -name "*.gradle" -o -name "*.properties" \
@@ -151,6 +152,7 @@ info:
 	@echo "    ANDROID_DIR   : $(ANDROID_DIR)"
 	@echo "    VERSION       : $(VERSION)"
 	@echo "    VERSION_CODE  : $(VERSION_CODE)"
+	@echo "    ALLOW_BACKUP  : $(ALLOW_BACKUP)"
 	@echo "    AAR           : $(AAR_PATH)"
 	@echo "    APK           : $(APK_DEBUG)"
 	@echo "    DEBUG         : $(DEBUG)"

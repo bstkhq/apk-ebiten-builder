@@ -20,6 +20,7 @@ Inspired by the practices from `github.com/programatta/demoandroid` (the "do it 
 - [Configuration variables](#configuration-variables)
   - [VERSION_CODE derived from VERSION](#version_code-derived-from-version)
   - [Injecting variables into Go (ldflags)](#injecting-variables-into-go-ldflags)
+- [Optional Android platform bridge](#optional-android-platform-bridge)
 - [Include.mk targets](#includemk-targets)
 - [How template substitution works](#how-template-substitution-works)
 - [Signed release builds](#signed-release-builds)
@@ -112,6 +113,7 @@ Defined in `Include.mk`. Override from your `Makefile` or on the command line.
 | `GO_LDFLAGS`         | *(empty)*                   | `-ldflags` passed to `ebitenmobile bind`. Useful for injecting variables.|
 | `VERSION`            | `v1.0.0`                    | `versionName`. `VERSION_CODE` is derived automatically.                  |
 | `SCREEN_ORIENTATION` | `fullSensor`                | Value for `android:screenOrientation`.                                   |
+| `ALLOW_BACKUP`       | `true`                      | Value for `android:allowBackup`; set `false` for device-local config.     |
 | `ANDROID_SDK_ROOT`   | *(required)*                | SDK root. Populated by `Dependencies.mk`.                                |
 | `DEBUG`              | `0`                         | `1` shows full Gradle output.                                            |
 | `NO_COLOR`           | *(empty)*                   | `1` disables colored log prefixes.                                       |
@@ -136,6 +138,42 @@ export GO_LDFLAGS
 ```
 
 See the sample project `Makefile` (Buzzattack Kiosk) for a complete pattern with an optional `CONTROL_URL`.
+
+## Optional Android platform bridge
+
+Applications may export this additional gomobile contract:
+
+```go
+type PlatformBridge interface {
+	NoBackupFilesDir() string
+	LocaleTags() string
+	RestartApp()
+}
+
+func RegisterPlatformBridge(PlatformBridge)
+func OnBackPressed() bool
+```
+
+The template discovers these symbols by reflection. An application that does
+not export them keeps its previous behavior and does not need to generate a
+`PlatformBridge` Java interface. If a named hook exists with an incompatible
+signature, startup fails explicitly instead of silently dropping the bridge.
+
+Registration happens after `Seq.setContext`. The bridge uses only the
+application context and exposes:
+
+- the absolute `noBackupFilesDir` path;
+- the configured Android locales as ordered BCP 47 tags;
+- a full process restart that launches the successor only after the old PID has
+  exited.
+
+`OnBackPressed` is consulted before the Ebiten view for hardware Back and via
+`OnBackPressedDispatcher` for system Back. Returning `true` consumes the event;
+returning `false` delegates to the behavior the Activity had before these hooks.
+
+The restart uses a private, non-exported Activity in a short-lived `:restart`
+process. It requires no alarm permission, does not restart Android, and prevents
+native listeners in the old and new application processes from overlapping.
 
 
 <a id="includemk-targets"></a>
@@ -164,7 +202,7 @@ When `DEBUG=0` (default), Gradle output is captured to `.build/android/.make-gra
 2. Replaces every `@@VAR@@` with the value of the matching variable (`APP_NAME`, `APP_ID`, `VERSION`, …).
 3. Relocates any `.java`/`.kt` whose `package` declaration matches `APP_ID` into `app/src/main/java/<APP_ID as path>/`.
 
-Substitutable variables: `APP_NAME`, `APP_ID`, `GO_PKG`, `JAVA_PKG`, `MAIN_ACTIVITY`, `ANDROID_SDK_ROOT`, `VERSION`, `VERSION_CODE`, `SCREEN_ORIENTATION`, `LOG_TAG`.
+Substitutable variables: `APP_NAME`, `APP_ID`, `GO_PKG`, `JAVA_PKG`, `MAIN_ACTIVITY`, `ANDROID_SDK_ROOT`, `VERSION`, `VERSION_CODE`, `SCREEN_ORIENTATION`, `ALLOW_BACKUP`, `LOG_TAG`.
 
 `JAVA_PKG` defaults to `$(APP_ID).corelib` and is the `-javapkg` passed to `ebitenmobile bind`.
 
