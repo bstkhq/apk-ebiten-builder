@@ -31,6 +31,7 @@
       android:excludeFromRecents="true"
       android:exported="false"
       android:finishOnTaskLaunch="true"
+      android:launchMode="singleTask"
       android:noHistory="true"
       android:process=":restart"
       android:taskAffinity="@@APP_ID@@.restart"

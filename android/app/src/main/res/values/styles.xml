@@ -19,7 +19,7 @@
     </style>
 
     <!-- Visible only for the few milliseconds required to replace the process. -->
-    <style name="RestartTheme" parent="Theme.AppCompat.NoActionBar">
+    <style name="RestartTheme" parent="android:style/Theme.Translucent.NoTitleBar">
       <item name="android:windowNoTitle">true</item>
       <item name="android:windowIsTranslucent">true</item>
       <item name="android:windowBackground">@android:color/transparent</item>

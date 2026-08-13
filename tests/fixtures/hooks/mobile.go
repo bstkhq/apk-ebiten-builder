@@ -52,7 +52,7 @@ func RegisterPlatformBridge(bridge PlatformBridge) {
 		}
 
 		go func() {
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(1500 * time.Millisecond)
 			fmt.Println("builder-hooks-fixture: requesting-restart")
 			bridge.RestartApp()
 		}()

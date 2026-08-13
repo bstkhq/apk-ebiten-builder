@@ -179,6 +179,17 @@ The restart uses a private, non-exported Activity in a short-lived `:restart`
 process. It requires no alarm permission, does not restart Android, and prevents
 native listeners in the old and new application processes from overlapping.
 
+Builder checks are split by environment:
+
+```bash
+make test          # reflection contract and template defaults
+make test-android  # build + Android lint for legacy and hooks fixtures
+make test-device   # install hooks fixture; verify PID restart, storage and Back
+```
+
+`test-device` accepts `ADB_SERIAL=<serial>` (or a serial as its first script
+argument) and touches only the private `games.example.builder.hooks` fixture.
+
 
 <a id="includemk-targets"></a>
 ## `Include.mk` targets

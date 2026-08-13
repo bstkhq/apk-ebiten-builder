@@ -32,6 +32,11 @@ build_fixture() {
 
   test -s "${root_dir}/.build/android/app/libs/game.aar"
   test -s "${root_dir}/.build/android/app/build/outputs/apk/debug/app-debug.apk"
+
+  (
+    cd "${root_dir}/.build/android"
+    ./gradlew -q --console=plain --warning-mode=none lintDebug
+  )
 }
 
 build_fixture legacy true false

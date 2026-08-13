@@ -1,5 +1,6 @@
 package @@APP_ID@@;
 
+import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -10,8 +11,6 @@ import android.os.Looper;
 import android.os.Process;
 import android.util.Log;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import java.util.List;
 
 /**
@@ -21,7 +20,7 @@ import java.util.List;
  * native listener cannot overlap with its successor. No alarm permission,
  * service or device restart is required.</p>
  */
-public final class ProcessRestartActivity extends AppCompatActivity {
+public final class ProcessRestartActivity extends Activity {
   static final String EXTRA_PREVIOUS_PID = "previous_pid";
 
   private static final String TAG = "@@LOG_TAG@@";
@@ -29,6 +28,7 @@ public final class ProcessRestartActivity extends AppCompatActivity {
   private static final int MAX_POLLS = 40;
 
   private final Handler handler = new Handler(Looper.getMainLooper());
+  private ComponentName launchComponent;
   private int previousPid;
   private int polls;
 
@@ -41,6 +41,13 @@ public final class ProcessRestartActivity extends AppCompatActivity {
       fail("invalid previous process id " + previousPid);
       return;
     }
+
+    Intent launchIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
+    if (launchIntent == null || launchIntent.getComponent() == null) {
+      fail("application has no launcher component");
+      return;
+    }
+    launchComponent = launchIntent.getComponent();
 
     Log.i(TAG, "restart: terminating previous process " + previousPid);
     Process.killProcess(previousPid);
@@ -83,19 +90,8 @@ public final class ProcessRestartActivity extends AppCompatActivity {
   }
 
   private void launchSuccessor() {
-    Intent launchIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
-    if (launchIntent == null) {
-      fail("application has no launch intent");
-      return;
-    }
-    ComponentName component = launchIntent.getComponent();
-    if (component == null) {
-      fail("application launch intent has no component");
-      return;
-    }
-
     Log.i(TAG, "restart: launching successor after process " + previousPid);
-    startActivity(Intent.makeRestartActivityTask(component));
+    startActivity(Intent.makeRestartActivityTask(launchComponent));
     finishAndRemoveTask();
     handler.postDelayed(
         () -> Process.killProcess(Process.myPid()),

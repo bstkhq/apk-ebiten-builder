@@ -1,4 +1,4 @@
-.PHONY: test test-android
+.PHONY: test test-android test-device
 
 test:
 	./tests/run-java-tests.sh
@@ -6,3 +6,6 @@ test:
 
 test-android: test
 	./tests/build-android-fixtures.sh
+
+test-device: test-android
+	./tests/verify-hooks-device.sh
