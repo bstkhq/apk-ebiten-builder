@@ -159,7 +159,7 @@ final class OptionalMobileHooks {
     if (method.getParameterCount() != 0 || method.getReturnType() != returnType) {
       throw incompatible(
           method,
-          "expected " + returnType.getTypeName() + " " + name + "()");
+          "expected " + returnType.getName() + " " + name + "()");
     }
   }
 

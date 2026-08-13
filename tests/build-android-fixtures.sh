@@ -25,7 +25,7 @@ build_fixture() {
     ALLOW_BACKUP="${backup}" \
     SCREEN_ORIENTATION=landscape \
     ANDROID_TARGET="${ANDROID_TARGET:-android/amd64}" \
-    VERSION="v0.0.1-${fixture}" \
+    VERSION="v1.0.1-${fixture}" \
     NO_COLOR=1
 
   test -s "${root_dir}/.build/android/app/libs/game.aar"
