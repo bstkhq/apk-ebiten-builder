@@ -6,6 +6,12 @@ package="games.example.builder.hooks"
 apk="${repo_dir}/.build/tests/android-fixtures/hooks/.build/android/app/build/outputs/apk/debug/app-debug.apk"
 adb_bin="${ADB:-adb}"
 serial="${ADB_SERIAL:-${1:-}}"
+timeout_seconds="${DEVICE_TIMEOUT_SECONDS:-60}"
+
+if [[ ! "${timeout_seconds}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "DEVICE_TIMEOUT_SECONDS must be a positive integer" >&2
+  exit 2
+fi
 
 adb_cmd=("${adb_bin}")
 if [[ -n "${serial}" ]]; then
@@ -24,7 +30,7 @@ trap cleanup EXIT
 "${adb_cmd[@]}" shell am start -n "${package}/.MainActivity" >/dev/null
 
 initial_pid=""
-deadline=$((SECONDS + 60))
+deadline=$((SECONDS + timeout_seconds))
 while (( SECONDS < deadline )); do
   initial_pid="$("${adb_cmd[@]}" shell pidof "${package}" 2>/dev/null | tr -d '\r' || true)"
   if [[ -n "${initial_pid}" ]]; then

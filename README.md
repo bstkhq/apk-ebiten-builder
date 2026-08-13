@@ -189,6 +189,8 @@ make test-device   # install hooks fixture; verify PID restart, storage and Back
 
 `test-device` accepts `ADB_SERIAL=<serial>` (or a serial as its first script
 argument) and touches only the private `games.example.builder.hooks` fixture.
+Its default 60-second device timeout can be raised with
+`DEVICE_TIMEOUT_SECONDS` for an emulator running without hardware acceleration.
 
 
 <a id="includemk-targets"></a>
