@@ -114,6 +114,7 @@ Defined in `Include.mk`. Override from your `Makefile` or on the command line.
 | `VERSION`            | `v1.0.0`                    | `versionName`. `VERSION_CODE` is derived automatically.                  |
 | `SCREEN_ORIENTATION` | `fullSensor`                | Value for `android:screenOrientation`.                                   |
 | `ALLOW_BACKUP`       | `true`                      | Value for `android:allowBackup`; set `false` for device-local config.     |
+| `ENABLE_ON_BACK_INVOKED_CALLBACK` | `false`        | Opt in to Android 13 predictive Back dispatch for a Go Back hook.        |
 | `ANDROID_SDK_ROOT`   | *(required)*                | SDK root. Populated by `Dependencies.mk`.                                |
 | `DEBUG`              | `0`                         | `1` shows full Gradle output.                                            |
 | `NO_COLOR`           | *(empty)*                   | `1` disables colored log prefixes.                                       |
@@ -170,6 +171,9 @@ application context and exposes:
 `OnBackPressed` is consulted before the Ebiten view for hardware Back and via
 `OnBackPressedDispatcher` for system Back. Returning `true` consumes the event;
 returning `false` delegates to the behavior the Activity had before these hooks.
+Applications that need the Android 13 predictive Back path also set
+`ENABLE_ON_BACK_INVOKED_CALLBACK=true`; its default is `false` so existing
+applications keep their manifest behavior.
 
 The restart uses a private, non-exported Activity in a short-lived `:restart`
 process. It requires no alarm permission, does not restart Android, and prevents

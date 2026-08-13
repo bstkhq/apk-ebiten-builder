@@ -1,4 +1,6 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools">
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -8,8 +10,10 @@
     android:roundIcon="@mipmap/ic_launcher_round"
     android:supportsRtl="true"
     android:allowBackup="@@ALLOW_BACKUP@@"
+    android:enableOnBackInvokedCallback="@@ENABLE_ON_BACK_INVOKED_CALLBACK@@"
     android:label="@@APP_NAME@@"
-    android:theme="@style/SplashTheme">
+    android:theme="@style/SplashTheme"
+    tools:targetApi="tiramisu">
     <activity
       android:exported="true"
       android:name="@@MAIN_ACTIVITY@@"

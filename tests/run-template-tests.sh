@@ -24,14 +24,19 @@ generate() {
 legacy_dir="${scratch_dir}/legacy"
 podium_dir="${scratch_dir}/podium"
 generate "${legacy_dir}"
-generate "${podium_dir}" ALLOW_BACKUP=false SCREEN_ORIENTATION=landscape
+generate "${podium_dir}" \
+  ALLOW_BACKUP=false \
+  ENABLE_ON_BACK_INVOKED_CALLBACK=true \
+  SCREEN_ORIENTATION=landscape
 
 legacy_manifest="${legacy_dir}/.build/android/app/src/main/AndroidManifest.xml"
 podium_manifest="${podium_dir}/.build/android/app/src/main/AndroidManifest.xml"
 generated_java="${podium_dir}/.build/android/app/src/main/java/games/example/fixture"
 
 grep -Fq 'android:allowBackup="true"' "${legacy_manifest}"
+grep -Fq 'android:enableOnBackInvokedCallback="false"' "${legacy_manifest}"
 grep -Fq 'android:allowBackup="false"' "${podium_manifest}"
+grep -Fq 'android:enableOnBackInvokedCallback="true"' "${podium_manifest}"
 grep -Fq 'android:screenOrientation="landscape"' "${podium_manifest}"
 grep -Fq 'android:process=":restart"' "${podium_manifest}"
 test -f "${generated_java}/MainActivity.java"

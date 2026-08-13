@@ -10,6 +10,7 @@ mkdir -p "${build_parent}"
 build_fixture() {
   local fixture="$1"
   local backup="$2"
+  local back_invoked="$3"
   local root_dir="${build_parent}/${fixture}"
 
   mkdir -p "${root_dir}"
@@ -23,6 +24,7 @@ build_fixture() {
     APP_NAME="Builder ${fixture} fixture" \
     APP_ID="games.example.builder.${fixture}" \
     ALLOW_BACKUP="${backup}" \
+    ENABLE_ON_BACK_INVOKED_CALLBACK="${back_invoked}" \
     SCREEN_ORIENTATION=landscape \
     ANDROID_TARGET="${ANDROID_TARGET:-android/amd64}" \
     VERSION="v1.0.1-${fixture}" \
@@ -32,7 +34,7 @@ build_fixture() {
   test -s "${root_dir}/.build/android/app/build/outputs/apk/debug/app-debug.apk"
 }
 
-build_fixture legacy true
-build_fixture hooks false
+build_fixture legacy true false
+build_fixture hooks false true
 
 echo "build-android-fixtures: legacy and hooks APKs passed"
