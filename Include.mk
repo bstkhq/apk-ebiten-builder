@@ -84,8 +84,9 @@ JAVA_PKG ?= $(APP_ID).corelib
 
 APK_DEBUG := $(ANDROID_DIR)/app/build/outputs/apk/debug/app-debug.apk
 
-# Permissive: extract first 4 integers found in VERSION (ignore everything else),
-# fill missing with 0, then format: major + minor(2) + patch(2) + extra(2)
+# Permissive: extract the first 4 integers found in VERSION (ignore everything
+# else), fill missing values with 0, then calculate a decimal Android code.
+# Arithmetic output is important: a zero-padded Gradle literal is octal.
 VERSION_CODE := $(shell bash -lc '\
   set -euo pipefail; \
   v="$(VERSION)"; \
@@ -94,7 +95,7 @@ VERSION_CODE := $(shell bash -lc '\
   minor="$${nums[1]:-0}"; \
   patch="$${nums[2]:-0}"; \
   extra="$${nums[3]:-0}"; \
-  printf "%d%02d%02d%02d\n" "$$major" "$$minor" "$$patch" "$$extra"; \
+  printf "%d\n" "$$((10#$$major * 1000000 + 10#$$minor * 10000 + 10#$$patch * 100 + 10#$$extra))"; \
 ')
 
 # Names of placeholders to replace in templates: @@VAR@@
