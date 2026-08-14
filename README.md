@@ -115,6 +115,7 @@ Defined in `Include.mk`. Override from your `Makefile` or on the command line.
 | `SCREEN_ORIENTATION` | `fullSensor`                | Value for `android:screenOrientation`.                                   |
 | `ALLOW_BACKUP`       | `true`                      | Value for `android:allowBackup`; set `false` for device-local config.     |
 | `ENABLE_ON_BACK_INVOKED_CALLBACK` | `false`        | Opt in to Android 13 predictive Back dispatch for a Go Back hook.        |
+| `USES_CLEARTEXT_TRAFFIC` | *(empty)*               | Optional `android:usesCleartextTraffic`; empty preserves manifest default. |
 | `ANDROID_SDK_ROOT`   | *(required)*                | SDK root. Populated by `Dependencies.mk`.                                |
 | `DEBUG`              | `0`                         | `1` shows full Gradle output.                                            |
 | `NO_COLOR`           | *(empty)*                   | `1` disables colored log prefixes.                                       |
@@ -221,7 +222,7 @@ When `DEBUG=0` (default), Gradle output is captured to `.build/android/.make-gra
 2. Replaces every `@@VAR@@` with the value of the matching variable (`APP_NAME`, `APP_ID`, `VERSION`, …).
 3. Relocates any `.java`/`.kt` whose `package` declaration matches `APP_ID` into `app/src/main/java/<APP_ID as path>/`.
 
-Substitutable variables: `APP_NAME`, `APP_ID`, `GO_PKG`, `JAVA_PKG`, `MAIN_ACTIVITY`, `ANDROID_SDK_ROOT`, `VERSION`, `VERSION_CODE`, `SCREEN_ORIENTATION`, `ALLOW_BACKUP`, `LOG_TAG`.
+Substitutable variables: `APP_NAME`, `APP_ID`, `GO_PKG`, `JAVA_PKG`, `MAIN_ACTIVITY`, `ANDROID_SDK_ROOT`, `VERSION`, `VERSION_CODE`, `SCREEN_ORIENTATION`, `ALLOW_BACKUP`, `ENABLE_ON_BACK_INVOKED_CALLBACK`, `USES_CLEARTEXT_TRAFFIC_ATTRIBUTE`, `LOG_TAG`.
 
 `JAVA_PKG` defaults to `$(APP_ID).corelib` and is the `-javapkg` passed to `ebitenmobile bind`.
 

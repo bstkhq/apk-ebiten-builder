@@ -11,6 +11,7 @@
     android:supportsRtl="true"
     android:allowBackup="@@ALLOW_BACKUP@@"
     android:enableOnBackInvokedCallback="@@ENABLE_ON_BACK_INVOKED_CALLBACK@@"
+    @@USES_CLEARTEXT_TRAFFIC_ATTRIBUTE@@
     android:label="@@APP_NAME@@"
     android:theme="@style/SplashTheme"
     tools:targetApi="tiramisu">

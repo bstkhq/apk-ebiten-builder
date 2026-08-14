@@ -28,6 +28,7 @@ generate "${podium_dir}" \
   VERSION=v2.3.1 \
   ALLOW_BACKUP=false \
   ENABLE_ON_BACK_INVOKED_CALLBACK=true \
+  USES_CLEARTEXT_TRAFFIC=true \
   SCREEN_ORIENTATION=landscape
 
 legacy_manifest="${legacy_dir}/.build/android/app/src/main/AndroidManifest.xml"
@@ -38,8 +39,13 @@ generated_java="${podium_dir}/.build/android/app/src/main/java/games/example/fix
 
 grep -Fq 'android:allowBackup="true"' "${legacy_manifest}"
 grep -Fq 'android:enableOnBackInvokedCallback="false"' "${legacy_manifest}"
+if grep -Fq 'android:usesCleartextTraffic=' "${legacy_manifest}"; then
+  echo "legacy manifest unexpectedly overrides the cleartext default" >&2
+  exit 1
+fi
 grep -Fq 'android:allowBackup="false"' "${podium_manifest}"
 grep -Fq 'android:enableOnBackInvokedCallback="true"' "${podium_manifest}"
+grep -Fq 'android:usesCleartextTraffic="true"' "${podium_manifest}"
 grep -Fq 'android:screenOrientation="landscape"' "${podium_manifest}"
 grep -Fq 'android:process=":restart"' "${podium_manifest}"
 grep -Fq 'versionCode 500' "${legacy_gradle}"
