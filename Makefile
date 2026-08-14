@@ -8,4 +8,5 @@ test-android: test
 	./tests/build-android-fixtures.sh
 
 test-device: test-android
+	./tests/verify-legacy-device.sh
 	./tests/verify-hooks-device.sh

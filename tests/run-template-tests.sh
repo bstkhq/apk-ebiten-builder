@@ -54,6 +54,11 @@ test -f "${generated_java}/MainActivity.java"
 test -f "${generated_java}/OptionalMobileHooks.java"
 test -f "${generated_java}/AndroidPlatformServices.java"
 test -f "${generated_java}/ProcessRestartActivity.java"
+grep -Fq 'public boolean onCheckIsTextEditor()' "${generated_java}/EbitenExtendedView.java"
+grep -Fq 'return this.currentInputType >= 0;' "${generated_java}/EbitenExtendedView.java"
+grep -Fq 'showImeWhenReady(view, generation)' "${generated_java}/MainActivity.java"
+grep -Fq '!view.hasWindowFocus() || !view.isFocused()' "${generated_java}/MainActivity.java"
+grep -Fq 'insetsController.show(WindowInsetsCompat.Type.ime())' "${generated_java}/MainActivity.java"
 
 if grep -R -n '@@[A-Z_][A-Z_]*@@' "${podium_dir}/.build/android"; then
   echo "unresolved Android template placeholder" >&2

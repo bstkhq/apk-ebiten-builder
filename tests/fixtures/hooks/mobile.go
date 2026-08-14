@@ -18,7 +18,13 @@ type IMEBridge interface {
 	Hide()
 }
 
-func RegisterIMEBridge(IMEBridge) {}
+func RegisterIMEBridge(bridge IMEBridge) {
+	go func() {
+		time.Sleep(2500 * time.Millisecond)
+		fmt.Println("builder-hooks-fixture: requesting-ime")
+		bridge.Show(1, 6) // TYPE_CLASS_TEXT, IME_ACTION_DONE
+	}()
+}
 
 func SetAndroidID(id int64) {
 	fmt.Printf("builder-hooks-fixture: android_id=%d\n", id)
@@ -65,17 +71,24 @@ func OnBackPressed() bool {
 }
 
 func init() {
-	ebitenmobile.SetGame(fixtureGame{background: color.RGBA{R: 0x3b, G: 0x7d, B: 0x23, A: 0xff}})
+	ebitenmobile.SetGame(&fixtureGame{background: color.RGBA{R: 0x3b, G: 0x7d, B: 0x23, A: 0xff}})
 }
 
 type fixtureGame struct {
 	background color.Color
+	input      string
 }
 
-func (g fixtureGame) Update() error { return nil }
+func (g *fixtureGame) Update() error {
+	if chars := ebiten.AppendInputChars(nil); len(chars) > 0 {
+		g.input += string(chars)
+		fmt.Printf("builder-hooks-fixture: ime-text=%s\n", g.input)
+	}
+	return nil
+}
 
-func (g fixtureGame) Draw(screen *ebiten.Image) {
+func (g *fixtureGame) Draw(screen *ebiten.Image) {
 	screen.Fill(g.background)
 }
 
-func (g fixtureGame) Layout(int, int) (int, int) { return 320, 180 }
+func (g *fixtureGame) Layout(int, int) (int, int) { return 320, 180 }

@@ -7,9 +7,14 @@ apk="${repo_dir}/.build/tests/android-fixtures/hooks/.build/android/app/build/ou
 adb_bin="${ADB:-adb}"
 serial="${ADB_SERIAL:-${1:-}}"
 timeout_seconds="${DEVICE_TIMEOUT_SECONDS:-60}"
+ime_character_timeout_seconds="${IME_CHARACTER_TIMEOUT_SECONDS:-20}"
 
 if [[ ! "${timeout_seconds}" =~ ^[1-9][0-9]*$ ]]; then
   echo "DEVICE_TIMEOUT_SECONDS must be a positive integer" >&2
+  exit 2
+fi
+if [[ ! "${ime_character_timeout_seconds}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "IME_CHARACTER_TIMEOUT_SECONDS must be a positive integer" >&2
   exit 2
 fi
 
@@ -30,6 +35,7 @@ trap cleanup EXIT
 "${adb_cmd[@]}" shell am start -n "${package}/.MainActivity" >/dev/null
 
 initial_pid=""
+echo "verify-hooks-device: waiting for initial process"
 deadline=$((SECONDS + timeout_seconds))
 while (( SECONDS < deadline )); do
   initial_pid="$("${adb_cmd[@]}" shell pidof "${package}" 2>/dev/null | tr -d '\r' || true)"
@@ -41,6 +47,8 @@ done
 test -n "${initial_pid}"
 
 successor_pid=""
+echo "verify-hooks-device: waiting for restarted process"
+deadline=$((SECONDS + timeout_seconds))
 while (( SECONDS < deadline )); do
   candidate="$("${adb_cmd[@]}" shell pidof "${package}" 2>/dev/null | tr -d '\r' || true)"
   if [[ -n "${candidate}" && "${candidate}" != "${initial_pid}" ]]; then
@@ -69,8 +77,70 @@ printf '%s\n' "${processes}" | grep -Eq "[[:space:]]${package}$"
   | grep -m 1 'topResumedActivity' \
   | grep -Fq "${package}/.MainActivity"
 
+ime_visible=false
+echo "verify-hooks-device: waiting for IME"
+deadline=$((SECONDS + timeout_seconds))
+while (( SECONDS < deadline )); do
+  if "${adb_cmd[@]}" shell dumpsys input_method | grep -Fq 'mInputShown=true'; then
+    ime_visible=true
+    break
+  fi
+  sleep 0.25
+done
+test "${ime_visible}" = true
+
+# Sending a whole string through `adb input text` is lossy on slow software
+# emulators: the active IME can time out one event while accepting the rest.
+# Deliver and confirm each character before advancing. A duplicate or
+# out-of-order character fails immediately instead of producing a false pass.
+expected_text=""
+for character in i m e 4 2; do
+  expected_text+="${character}"
+  character_delivered=false
+  echo "verify-hooks-device: waiting for IME text ${expected_text}"
+  for attempt in 1 2 3; do
+    "${adb_cmd[@]}" shell input text "${character}"
+    deadline=$((SECONDS + ime_character_timeout_seconds))
+    while (( SECONDS < deadline )); do
+      latest_text="$(
+        "${adb_cmd[@]}" shell logcat -d --pid="${successor_pid}" -t 500 GoLog:V '*:S' \
+          | sed -n 's/.*builder-hooks-fixture: ime-text=//p' \
+          | tail -n 1 \
+          | tr -d '\r'
+      )"
+      if [[ "${latest_text}" == "${expected_text}" ]]; then
+        character_delivered=true
+        break
+      fi
+      if [[ -n "${latest_text}" && "${expected_text}" != "${latest_text}"* ]]; then
+        echo "unexpected IME text: got ${latest_text}, expected prefix of ${expected_text}" >&2
+        exit 1
+      fi
+      sleep 0.25
+    done
+    if [[ "${character_delivered}" == true ]]; then
+      break
+    fi
+    echo "verify-hooks-device: retrying character ${character} (${attempt}/3)" >&2
+  done
+  test "${character_delivered}" = true
+done
+
+# The first Back dismisses the IME. Only the following Back reaches Go.
+"${adb_cmd[@]}" shell input keyevent KEYCODE_BACK
+deadline=$((SECONDS + timeout_seconds))
+echo "verify-hooks-device: waiting for IME dismissal"
+while (( SECONDS < deadline )); do
+  if "${adb_cmd[@]}" shell dumpsys input_method | grep -Fq 'mInputShown=false'; then
+    break
+  fi
+  sleep 0.25
+done
+
 "${adb_cmd[@]}" shell input keyevent KEYCODE_BACK
 back_consumed=false
+echo "verify-hooks-device: waiting for Go Back hook"
+deadline=$((SECONDS + timeout_seconds))
 while (( SECONDS < deadline )); do
   test "$("${adb_cmd[@]}" shell pidof "${package}" | tr -d '\r')" = "${successor_pid}"
   if "${adb_cmd[@]}" shell logcat -d --pid="${successor_pid}" -t 500 GoLog:V '*:S' \
@@ -85,4 +155,4 @@ test "${back_consumed}" = true
   | grep -m 1 'topResumedActivity' \
   | grep -Fq "${package}/.MainActivity"
 
-echo "verify-hooks-device: PID ${initial_pid} -> ${successor_pid}, no-backup, locale and Back passed"
+echo "verify-hooks-device: PID ${initial_pid} -> ${successor_pid}, no-backup, locale, IME and Back passed"
