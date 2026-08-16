@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -47,6 +48,11 @@ type AndroidBridge interface {
 	RestartApp() error
 }
 
+var (
+	restartRequest  sync.Once
+	processIdentity = fmt.Sprintf("%d:%d", os.Getpid(), time.Now().UnixNano())
+)
+
 func RegisterAndroidBridge(bridge AndroidBridge) {
 	noBackupDir, err := inspectBridge(bridge)
 	if err != nil {
@@ -56,25 +62,30 @@ func RegisterAndroidBridge(bridge AndroidBridge) {
 	fmt.Println("builder-bridge-fixture: runtime-ok")
 
 	marker := filepath.Join(noBackupDir, "builder-bridge-restarted-v1")
-	if _, err := os.Stat(marker); err == nil {
-		fmt.Println("builder-bridge-fixture: successor-ready")
-		return
+	markerIdentity, err := os.ReadFile(marker)
+	if err == nil {
+		if strings.TrimSpace(string(markerIdentity)) != processIdentity {
+			fmt.Println("builder-bridge-fixture: successor-ready")
+			return
+		}
+		fmt.Println("builder-bridge-fixture: activity-recreated-in-initial-process")
 	} else if !os.IsNotExist(err) {
-		fmt.Printf("builder-bridge-fixture: marker-stat-error=%v\n", err)
+		fmt.Printf("builder-bridge-fixture: marker-read-error=%v\n", err)
 		return
-	}
-	if err := os.WriteFile(marker, []byte("restart requested\n"), 0o600); err != nil {
+	} else if err := os.WriteFile(marker, []byte(processIdentity+"\n"), 0o600); err != nil {
 		fmt.Printf("builder-bridge-fixture: marker-write-error=%v\n", err)
 		return
 	}
 
-	go func() {
-		time.Sleep(1500 * time.Millisecond)
-		fmt.Println("builder-bridge-fixture: requesting-restart")
-		if err := bridge.RestartApp(); err != nil {
-			fmt.Printf("builder-bridge-fixture: restart-error=%v\n", err)
-		}
-	}()
+	restartRequest.Do(func() {
+		go func() {
+			time.Sleep(1500 * time.Millisecond)
+			fmt.Println("builder-bridge-fixture: requesting-restart")
+			if err := bridge.RestartApp(); err != nil {
+				fmt.Printf("builder-bridge-fixture: restart-error=%v\n", err)
+			}
+		}()
+	})
 }
 
 func inspectBridge(bridge AndroidBridge) (string, error) {

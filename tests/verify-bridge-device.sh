@@ -8,26 +8,26 @@ adb_bin="${ADB:-adb}"
 serial="${ADB_SERIAL:-${1:-}}"
 timeout_seconds="${DEVICE_TIMEOUT_SECONDS:-180}"
 
-if [[ ! "${timeout_seconds}" =~ ^[1-9][0-9]*$ ]]; then
-  echo "DEVICE_TIMEOUT_SECONDS must be a positive integer" >&2
-  exit 2
-fi
-
 adb_cmd=("${adb_bin}")
 if [[ -n "${serial}" ]]; then
   adb_cmd+=( -s "${serial}" )
 fi
 
+# shellcheck source=device-test-lib.sh
+source "${repo_dir}/tests/device-test-lib.sh"
+
 test -s "${apk}"
 
 cleanup() {
-  "${adb_cmd[@]}" shell am force-stop "${package}" >/dev/null 2>&1 || true
+  device_test_session_cleanup "${package}"
 }
 trap cleanup EXIT
 
+device_test_session_begin
 "${adb_cmd[@]}" install -r "${apk}" >/dev/null
 "${adb_cmd[@]}" shell pm clear "${package}" >/dev/null
-"${adb_cmd[@]}" shell am start -n "${package}/.MainActivity" >/dev/null
+"${adb_cmd[@]}" logcat -c
+device_test_launch_activity "${package}/.MainActivity"
 
 initial_pid=""
 initial_ready=false
@@ -80,6 +80,7 @@ while (( SECONDS < deadline )); do
   sleep 0.25
 done
 test "${successor_ready}" = true
+device_test_wait_for_top_activity "${package}/.MainActivity"
 
 all_logs="$("${adb_cmd[@]}" logcat -d -t 4000 GoLog:V '*:S')"
 grep -Fq "restart: death observer linked; terminating process ${initial_pid}" <<<"${all_logs}"
@@ -95,9 +96,12 @@ printf '%s\n' "${processes}" | grep -Eq "[[:space:]]${package}$"
 
 "${adb_cmd[@]}" shell run-as "${package}" ls -l no_backup \
   | grep -Eq '^-rw-------.*builder-bridge-restarted-v1$'
-"${adb_cmd[@]}" shell dumpsys activity activities \
-  | grep -m 1 'topResumedActivity' \
-  | grep -Fq "${package}/.MainActivity"
+marker_identity="$(
+  "${adb_cmd[@]}" shell run-as "${package}" cat \
+    no_backup/builder-bridge-restarted-v1 | tr -d '\r\n'
+)"
+grep -Eq "^${initial_pid}:[0-9]+$" <<<"${marker_identity}"
+device_test_wait_for_top_activity "${package}/.MainActivity"
 
 # The helper is deliberately private: even adb shell cannot invoke it.
 private_start="$(
