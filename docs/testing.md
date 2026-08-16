@@ -18,7 +18,7 @@ sudo apt-get install libc6-dev libasound2-dev libgl1-mesa-dev libx11-dev \
 
 | Command | Covers |
 | --- | --- |
-| `make test` | Java and Go contracts, dependency and template checks, plus device-helper tests. |
+| `make test` | Java and Go contracts, bootstrap, dependency and template checks, plus device-helper tests. |
 | `make test-android` | `make test`, every fixture APK, Android lint, signatures and 16 KiB alignment checks. |
 | `make test-device` | `make test-android` plus runtime checks on a connected Android device. |
 

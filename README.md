@@ -75,26 +75,24 @@ Other useful `Dependencies.mk` targets: `info_sdk`, `list_sdk`, `update_sdk`, `a
 
 ## Usage from your project
 
-In your Ebiten project, create a `Makefile` that clones this repo and includes it:
+Add the copy-ready bootstrap from the [builder revision guide](docs/using-builder.md)
+to your Ebiten project's `Makefile`. It keeps a checkout in the project, makes
+the builder targets available, and supports reproducible pinning.
 
-```make
-# Configuration
-APP_NAME ?= My Game
-APP_ID   ?= games.mycompany.mygame
-GO_SRC   ?= $(abspath .)
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `BUILDER_DIR` | `.build/apk-ebiten-builder` | Local checkout cache. |
+| `BUILDER_REPO` | `https://github.com/bstkhq/apk-ebiten-builder` | Builder repository or a compatible fork. |
+| `BUILDER_REF` | *(empty)* | Latest commit on the remote default branch; set a release tag or commit SHA to pin it. |
 
-# Internal
-BUILDER_DIR  ?= .build/apk-ebiten-builder
-BUILDER_REPO ?= https://github.com/bstkhq/apk-ebiten-builder
-INCLUDE_PATH ?= $(BUILDER_DIR)/Include.mk
+For example, pin a published release for a reproducible build:
 
-export APP_ID
-
-$(INCLUDE_PATH):
-	git clone $(BUILDER_REPO) $(BUILDER_DIR)
-
-include $(INCLUDE_PATH)
+```bash
+make build BUILDER_REF=v0.1.0
 ```
+
+An empty `BUILDER_REF` updates to the latest default-branch commit each time
+`make` runs. The guide includes the full `Makefile` block and commit-SHA usage.
 
 Then run:
 
