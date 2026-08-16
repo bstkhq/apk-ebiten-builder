@@ -36,6 +36,7 @@ build_fixture() {
   local fixture="$1"
   local version="$2"
   local cleartext="$3"
+  local back_invoked="$4"
   local root_dir="${build_parent}/${fixture}"
   local app_id="games.example.builder.${fixture}"
 
@@ -53,6 +54,7 @@ build_fixture() {
     ANDROID_TARGET="${android_target}" \
     VERSION="${version}" \
     USES_CLEARTEXT_TRAFFIC="${cleartext}" \
+    ENABLE_ON_BACK_INVOKED_CALLBACK="${back_invoked}" \
     NO_COLOR=1
 
   local android_dir="${root_dir}/.build/android"
@@ -80,34 +82,63 @@ build_fixture() {
     javap -public -classpath "${inspect_dir}/classes.jar" \
       "${app_id}.corelib.mobile.Mobile"
   )"
-  if [[ "${fixture}" == legacy ]]; then
-    grep -Fq 'public static native void setAndroidID(long);' <<<"${mobile_signature}"
-    grep -Fq 'public static native void setTimezone(java.lang.String);' <<<"${mobile_signature}"
-    if grep -Fq 'registerAndroidBridge' <<<"${mobile_signature}"; then
-      echo "legacy fixture unexpectedly exports AndroidBridge" >&2
-      exit 1
-    fi
-  else
-    grep -Fq 'registerAndroidBridge' <<<"${mobile_signature}"
-    if grep -Fq 'setAndroidID' <<<"${mobile_signature}"; then
-      echo "bridge fixture unexpectedly depends on legacy setAndroidID" >&2
-      exit 1
-    fi
+  case "${fixture}" in
+    legacy)
+      grep -Fq 'public static native void setAndroidID(long);' <<<"${mobile_signature}"
+      grep -Fq 'public static native void setTimezone(java.lang.String);' <<<"${mobile_signature}"
+      if grep -Fq 'registerAndroidBridge' <<<"${mobile_signature}"; then
+        echo "legacy fixture unexpectedly exports AndroidBridge" >&2
+        exit 1
+      fi
+      if grep -Fq 'registerBackBridge' <<<"${mobile_signature}"; then
+        echo "legacy fixture unexpectedly exports BackBridge" >&2
+        exit 1
+      fi
+      ;;
+    bridge)
+      grep -Fq 'registerAndroidBridge' <<<"${mobile_signature}"
+      if grep -Fq 'setAndroidID' <<<"${mobile_signature}"; then
+        echo "bridge fixture unexpectedly depends on legacy setAndroidID" >&2
+        exit 1
+      fi
 
-    local bridge_signature
-    bridge_signature="$(
-      javap -public -classpath "${inspect_dir}/classes.jar" \
-        "${app_id}.corelib.mobile.AndroidBridge"
-    )"
-    test "$(grep -Ec '^  public abstract ' <<<"${bridge_signature}")" -eq 21
-    grep -Fq 'public abstract java.lang.String androidID() throws java.lang.Exception;' \
-      <<<"${bridge_signature}"
-    grep -Fq 'public abstract int sdkInt();' <<<"${bridge_signature}"
-    grep -Fq 'public abstract java.lang.String localIPAddresses() throws java.lang.Exception;' \
-      <<<"${bridge_signature}"
-    grep -Fq 'public abstract void restartApp() throws java.lang.Exception;' \
-      <<<"${bridge_signature}"
-  fi
+      local bridge_signature
+      bridge_signature="$(
+        javap -public -classpath "${inspect_dir}/classes.jar" \
+          "${app_id}.corelib.mobile.AndroidBridge"
+      )"
+      test "$(grep -Ec '^  public abstract ' <<<"${bridge_signature}")" -eq 21
+      grep -Fq 'public abstract java.lang.String androidID() throws java.lang.Exception;' \
+        <<<"${bridge_signature}"
+      grep -Fq 'public abstract int sdkInt();' <<<"${bridge_signature}"
+      grep -Fq 'public abstract java.lang.String localIPAddresses() throws java.lang.Exception;' \
+        <<<"${bridge_signature}"
+      grep -Fq 'public abstract void restartApp() throws java.lang.Exception;' \
+        <<<"${bridge_signature}"
+      ;;
+    back)
+      grep -Fq 'registerBackBridge' <<<"${mobile_signature}"
+      grep -Fq 'public static native void setAndroidID(long);' <<<"${mobile_signature}"
+
+      local back_bridge_signature
+      local back_handler_signature
+      back_bridge_signature="$(
+        javap -public -classpath "${inspect_dir}/classes.jar" \
+          "${app_id}.corelib.mobile.BackBridge"
+      )"
+      back_handler_signature="$(
+        javap -public -classpath "${inspect_dir}/classes.jar" \
+          "${app_id}.corelib.mobile.BackHandler"
+      )"
+      grep -Fq 'public abstract void setHandler(' <<<"${back_bridge_signature}"
+      grep -Fq '.corelib.mobile.BackHandler);' <<<"${back_bridge_signature}"
+      grep -Fq 'public abstract boolean onBack();' <<<"${back_handler_signature}"
+      ;;
+    *)
+      echo "unknown Android fixture ${fixture}" >&2
+      exit 2
+      ;;
+  esac
 
   local manifest
   manifest="$("${android_sdk_root}/cmdline-tools/latest/bin/apkanalyzer" manifest print "${apk}")"
@@ -120,6 +151,12 @@ build_fixture() {
     grep -Fq 'android:usesCleartextTraffic="true"' <<<"${manifest}"
   elif grep -Fq 'android:usesCleartextTraffic=' <<<"${manifest}"; then
     echo "legacy APK unexpectedly overrides Android cleartext policy" >&2
+    exit 1
+  fi
+  if [[ "${back_invoked}" == true ]]; then
+    grep -Fq 'android:enableOnBackInvokedCallback="true"' <<<"${manifest}"
+  elif grep -Fq 'android:enableOnBackInvokedCallback=' <<<"${manifest}"; then
+    echo "${fixture} APK unexpectedly overrides Android Back dispatch policy" >&2
     exit 1
   fi
 
@@ -139,5 +176,6 @@ build_fixture() {
   echo "build-android-fixtures: ${fixture} (${android_target}) passed"
 }
 
-build_fixture legacy v1.0.1 ""
-build_fixture bridge v1.0.2 true
+build_fixture legacy v1.0.1 "" ""
+build_fixture bridge v1.0.2 true ""
+build_fixture back v1.0.3 "" true
