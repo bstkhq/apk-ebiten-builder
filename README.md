@@ -21,12 +21,9 @@ Inspired by the practices from `github.com/programatta/demoandroid` (the "do it 
 - [Installing dependencies](#installing-dependencies)
 - [Usage from your project](#usage-from-your-project)
 - [Configuration variables](#configuration-variables)
-  - [VERSION_CODE derived from VERSION](#version_code-derived-from-version)
   - [Injecting variables into Go (ldflags)](#injecting-variables-into-go-ldflags)
 - [Android bridges](#android-bridges)
-- [Automated tests](#automated-tests)
 - [Include.mk targets](#includemk-targets)
-- [How template substitution works](#how-template-substitution-works)
 - [Signed release builds](#signed-release-builds)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
@@ -40,13 +37,6 @@ Inspired by the practices from `github.com/programatta/demoandroid` (the "do it 
 - An Ebiten project with a `package mobile` that `ebitenmobile bind` can target.
 
 Everything else (Android SDK, NDK, CMake, `ebitenmobile`) is installed by this repo.
-On Debian/Ubuntu, the host-side Go test gate additionally needs Ebiten's native
-development packages:
-
-```bash
-sudo apt-get install libc6-dev libasound2-dev libgl1-mesa-dev libx11-dev \
-  libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxxf86vm-dev pkg-config
-```
 
 ## Installing dependencies
 
@@ -139,19 +129,7 @@ Defined in `Include.mk`. Override from your `Makefile` or on the command line.
 | `DEBUG`              | `0`                         | `1` shows full Gradle output.                                            |
 | `NO_COLOR`           | *(empty)*                   | `1` disables colored log prefixes.                                       |
 
-<a id="version_code-derived-from-version"></a>
-### `VERSION_CODE` derived from `VERSION`
-
-Extracts the first 4 integers found in `VERSION` and packs them:
-
-```
-VERSION_CODE = major * 1_000_000 + minor * 10_000 + patch * 100 + extra
-```
-
-Example: `v2.3.1` → `2030100`. Missing numbers default to `0`.
-The generated value is emitted from decimal arithmetic rather than as a
-zero-padded literal. This matters for versions such as `v0.8.9`: Gradle sees
-`80900`, never an octal-looking `0080900`.
+See the [versioning guide](docs/versioning.md) for `VERSION_CODE` derivation.
 
 <a id="injecting-variables-into-go-ldflags"></a>
 ### Injecting variables into Go (ldflags)
@@ -191,46 +169,6 @@ behavior. Legacy runtime exports remain supported; new integrations should use
 the documented `bridge` clients.
 
 
-## Automated tests
-
-The repository includes three progressively broader gates:
-
-```bash
-make test          # Java/Go contracts, templates and device-helper tests
-make test-android  # gates above + all fixture APKs and Android lint
-make test-device   # build gate + runtime, restart, Back, picker and IME checks
-```
-
-The Android build gate compiles legacy, the `bridge`-package AndroidBridge
-example, and independent Back, file-picker and IME lifecycle packages. Those
-fixtures embed the canonical callback contracts and inspect the actual gomobile
-Java signatures. The gate also runs Debug and Release lint, verifies APK
-signatures, and checks 16 KiB ZIP and native ELF alignment. It defaults to
-amd64 plus arm64; override `ANDROID_TARGET` when a narrower fixture is
-required.
-
-The builder supplies the linker flags required by NDK r26 for 16 KiB-aligned
-native libraries, independently of any values injected through `GO_LDFLAGS`.
-
-GitHub Actions runs `make test-android` for every pull request and every push
-to `main`. It installs Android tooling through `Dependencies.mk`, pins
-`ebitenmobile` to the fixture's Ebitengine version, and caches the SDK based on
-that installer configuration. The device gate remains manual because it
-requires a connected Android device.
-
-The device scripts accept `ADB_SERIAL=<serial>` and
-`DEVICE_TIMEOUT_SECONDS=<seconds>`. They install only the private fixture
-packages under `games.example.builder.*` and force-stop those fixtures on
-exit. Before changing the tablet, the shared device harness records its
-`GoLog` level and keep-awake setting. It wakes and unlocks the display, waits
-for the launcher transition to settle, requires a stable top-resumed Activity,
-and restores the recorded settings even when a gate fails. The helper itself
-is covered with a fake ADB transport, including the unset-setting case.
-The IME gate requests the keyboard during Activity creation, sends text through
-the focused surface, then verifies that Go can hide it again; the Back gate
-independently verifies consumed and delegated events.
-
-
 <a id="includemk-targets"></a>
 ## `Include.mk` targets
 
@@ -238,7 +176,7 @@ independently verifies consumed and delegated events.
 | ----------- | -------------------------------------------------------------------- |
 | `all`       | `clean` + `build` + `install`                                        |
 | `info`      | Prints the resolved configuration (paths, versions, etc.).           |
-| `generate`  | Copies `android/` to `.build/android/` and substitutes placeholders. |
+| `generate`  | Copies `android/` to `.build/android/` and substitutes placeholders; see [template generation](docs/template-generation.md). |
 | `compile`   | Runs `ebitenmobile bind` and produces `app/libs/game.aar`.           |
 | `build`     | `generate` + `compile` + `gradlew assembleDebug`.                    |
 | `install`   | `gradlew installDebug` + launches the activity via `adb am start`.   |
@@ -249,49 +187,10 @@ independently verifies consumed and delegated events.
 When `DEBUG=0` (default), Gradle output is captured to `.build/android/.make-gradle.log` and only shown (last 200 lines) if the build fails.
 
 
-## How template substitution works
-
-`generate` rsyncs `android/` → `.build/android/`, then:
-
-1. Finds `*.gradle`, `*.xml`, `*.java`, `*.kt`, `*.properties`, `*.toml`, `*.md`, etc.
-2. Replaces every `@@VAR@@` with the value of the matching variable (`APP_NAME`, `APP_ID`, `VERSION`, …).
-3. Relocates any `.java`/`.kt` whose `package` declaration matches `APP_ID` into `app/src/main/java/<APP_ID as path>/`.
-
-Substitutable variables: `APP_NAME`, `APP_ID`, `GO_PKG`, `JAVA_PKG`, `MAIN_ACTIVITY`, `ANDROID_SDK_ROOT`, `VERSION`, `VERSION_CODE`, `SCREEN_ORIENTATION`, `ALLOW_BACKUP`, `LOG_TAG`.
-
-`JAVA_PKG` defaults to `$(APP_ID).corelib` and is the `-javapkg` passed to `ebitenmobile bind`.
-
-
 ## Signed release builds
 
-`Include.mk` only produces debug APKs. For a signed release, add a target like this to your project's `Makefile`:
-
-```make
-KEYSTORE_PATH ?= $(ROOT_DIR)/release.keystore
-KEYSTORE_PASS ?=
-KEY_ALIAS ?=
-KEY_PASS ?= $(KEYSTORE_PASS)
-
-APK_RELEASE := $(ANDROID_DIR)/app/build/outputs/apk/release/app-release.apk
-
-release: generate compile
-	$(Q)test -f "$(KEYSTORE_PATH)" || { echo "Keystore not found"; exit 1; }
-	$(Q)test -n "$(KEYSTORE_PASS)" || { echo "KEYSTORE_PASS empty"; exit 1; }
-	$(Q)test -n "$(KEY_ALIAS)"     || { echo "KEY_ALIAS empty"; exit 1; }
-	$(call GRADLE_RUN,assembleRelease \
-		-Pandroid.injected.signing.store.file=$(KEYSTORE_PATH) \
-		-Pandroid.injected.signing.store.password=$(KEYSTORE_PASS) \
-		-Pandroid.injected.signing.key.alias=$(KEY_ALIAS) \
-		-Pandroid.injected.signing.key.password=$(KEY_PASS))
-
-.PHONY: release
-```
-
-Usage:
-
-```bash
-make release KEYSTORE_PASS='***' KEY_ALIAS=upload KEY_PASS='***'
-```
+`Include.mk` produces debug APKs. See the
+[signed release guide](docs/releasing.md) for the release target and usage.
 
 
 ## Troubleshooting
