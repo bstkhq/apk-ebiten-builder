@@ -23,6 +23,7 @@ Inspired by the practices from `github.com/programatta/demoandroid` (the "do it 
 - [Configuration variables](#configuration-variables)
   - [VERSION_CODE derived from VERSION](#version_code-derived-from-version)
   - [Injecting variables into Go (ldflags)](#injecting-variables-into-go-ldflags)
+- [Bridge guides](docs/bridges/)
 - [Android runtime bridge](#android-runtime-bridge)
 - [Android Back bridge](#android-back-bridge)
 - [Optional Android file picker](#optional-android-file-picker)
@@ -185,6 +186,10 @@ canonical types instead of copying their methods. A callback-taking method must
 retain a local parameter type, because gomobile generates that callback type
 from `package mobile` too.
 
+For behavior, lifecycle rules and concrete usage scenarios, read the
+[runtime bridge guide](docs/bridges/runtime.md). This README keeps the complete
+copy-ready Go adapter in one place.
+
 Then put this adapter in the `package mobile` passed to `ebitenmobile bind`:
 
 ```go
@@ -319,6 +324,10 @@ Go, while `AndroidBridge` exposes services that Go calls. Applications use the
 documented `bridge.BackClient` and retain only the local types that gomobile
 must export:
 
+The [Back bridge guide](docs/bridges/back.md) explains dispatch, default
+behavior and Activity recreation. The Go adapter below is its single canonical
+copy.
+
 ```go
 import "github.com/bstkhq/apk-ebiten-builder/bridge"
 
@@ -364,6 +373,10 @@ only empty, `true` and `false` are accepted.
 ## Optional Android file picker
 
 An application can independently opt in to Android's system document picker:
+
+The [file picker guide](docs/bridges/file-picker.md) describes the result
+contract, ownership of copied files and the user-action lifecycle. The Go
+adapter below is its single canonical copy.
 
 ```go
 import "github.com/bstkhq/apk-ebiten-builder/bridge"
@@ -419,6 +432,9 @@ it is no longer needed. Calling `SetResultHandler(nil)` stops result delivery.
 Use `bridge.IMEClient` to retain the desired keyboard state while Android
 creates or recreates its Activity. The local interface remains necessary only
 so gomobile generates the Java-facing type:
+
+The [IME guide](docs/bridges/ime.md) covers focus, composition and the
+keyboard lifecycle. The Go adapter below is its single canonical copy.
 
 ```go
 import (

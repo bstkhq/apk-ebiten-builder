@@ -14,19 +14,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * application types into the reusable Android template.
  *
  * <p>The canonical Go methods are documented in
- * {@code github.com/bstkhq/apk-ebiten-builder/bridge}. Gomobile emits only
- * types declared by the application's {@code mobile} package, so its local
- * adapter is:</p>
- *
- * <pre>{@code
- * import "github.com/bstkhq/apk-ebiten-builder/bridge"
- *
- * var back = bridge.NewBackClient()
- *
- * type BackHandler interface { bridge.BackHandler }
- * type BackBridge interface { SetHandler(BackHandler) }
- * func RegisterBackBridge(value BackBridge) { value.SetHandler(back) }
- * }</pre>
+ * {@code github.com/bstkhq/apk-ebiten-builder/bridge}. See the project
+ * README's Android Back bridge section for the required local gomobile adapter
+ * and a Go example.</p>
  *
  * <p>Applications without that complete export retain the Activity's existing
  * Back behavior. A named but incompatible export is a contract error.</p>

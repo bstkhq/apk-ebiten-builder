@@ -13,25 +13,9 @@ import java.util.List;
  * application types into the reusable Android template.
  *
  * <p>The canonical Go methods are documented in
- * {@code github.com/bstkhq/apk-ebiten-builder/bridge}. Gomobile emits only
- * types declared by the application's {@code mobile} package, so its local
- * adapter is:</p>
- *
- * <pre>{@code
- * import "github.com/bstkhq/apk-ebiten-builder/bridge"
- *
- * var picker = bridge.NewFilePickerClient()
- *
- * type FilePickerHandler interface { bridge.FilePickerHandler }
- * type FilePickerBridge interface {
- *     bridge.FilePickerOpener
- *     SetHandler(FilePickerHandler)
- * }
- * func RegisterFilePickerBridge(value FilePickerBridge) {
- *     picker.Register(value)
- *     value.SetHandler(picker)
- * }
- * }</pre>
+ * {@code github.com/bstkhq/apk-ebiten-builder/bridge}. See the project
+ * README's optional Android file picker section for the required local
+ * gomobile adapter and a Go example.</p>
  *
  * <p>Applications without that export keep their existing behavior. A named
  * but incompatible export is a contract error.</p>
