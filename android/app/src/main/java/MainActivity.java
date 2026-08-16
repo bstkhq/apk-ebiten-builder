@@ -31,15 +31,15 @@ public class MainActivity extends AppCompatActivity {
       Seq.setContext(getApplicationContext());
       Log.i(TAG, "onCreate: Seq.setContext ok");
 
-      AndroidPlatformServices platform = new AndroidPlatformServices(getApplicationContext());
-      if (OptionalAndroidPlatform.register(Mobile.class, platform)) {
-        Log.i(TAG, "onCreate: AndroidPlatform registered");
+      AndroidBridgeServices bridge = new AndroidBridgeServices(getApplicationContext());
+      if (OptionalAndroidBridge.register(Mobile.class, bridge)) {
+        Log.i(TAG, "onCreate: AndroidBridge registered");
       } else {
-        OptionalAndroidPlatform.LegacyValues legacy =
-            OptionalAndroidPlatform.configureLegacy(
+        OptionalAndroidBridge.LegacyValues legacy =
+            OptionalAndroidBridge.configureLegacy(
                 Mobile.class,
-                platform.androidID(),
-                platform.timeZone());
+                bridge.androidID(),
+                bridge.timeZone());
         Log.i(TAG, "onCreate: legacy androidID = " + legacy.androidId);
         if (legacy.timeZoneApplied) {
           Log.i(TAG, "onCreate: legacy setTimezone applied");

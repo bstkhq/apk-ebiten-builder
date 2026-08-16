@@ -16,7 +16,7 @@ type IMEBridge interface {
 
 func RegisterIMEBridge(IMEBridge) {}
 
-// SetAndroidID is retained to prove that pre-AndroidPlatform applications
+// SetAndroidID is retained to prove that pre-AndroidBridge applications
 // continue to receive the legacy signed value.
 func SetAndroidID(value int64) {
 	fmt.Printf("builder-legacy-fixture: android-id=%d\n", value)

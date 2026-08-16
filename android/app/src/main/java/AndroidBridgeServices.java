@@ -28,14 +28,14 @@ import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Android runtime information exposed to Go through AndroidPlatform. */
-final class AndroidPlatformServices implements OptionalAndroidPlatform.Services {
+/** Android runtime information exposed to Go through AndroidBridge. */
+final class AndroidBridgeServices implements OptionalAndroidBridge.Services {
   private static final Binder PROCESS_LIFETIME = new Binder();
   private static final AtomicBoolean RESTART_REQUESTED = new AtomicBoolean();
 
   private final Context applicationContext;
 
-  AndroidPlatformServices(Context context) {
+  AndroidBridgeServices(Context context) {
     if (context == null) {
       throw new NullPointerException("context");
     }

@@ -9,14 +9,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Adapts the optional gomobile AndroidPlatform interface without linking its
+ * Adapts the optional gomobile AndroidBridge interface without linking its
  * generated Java type.
  *
- * <p>Applications built before AndroidPlatform continue through the legacy
+ * <p>Applications built before AndroidBridge continue through the legacy
  * {@code setAndroidID(long)} and optional {@code setTimezone(String)} exports.
  * A named export with an incompatible signature is always a contract error.</p>
  */
-final class OptionalAndroidPlatform {
+final class OptionalAndroidBridge {
   interface Services {
     String androidID() throws Exception;
 
@@ -61,7 +61,7 @@ final class OptionalAndroidPlatform {
     void restartApp() throws Exception;
   }
 
-  private static final MethodSpec[] PLATFORM_METHODS = {
+  private static final MethodSpec[] BRIDGE_METHODS = {
     new MethodSpec("androidID", String.class, true),
     new MethodSpec("manufacturer", String.class, false),
     new MethodSpec("model", String.class, false),
@@ -85,13 +85,13 @@ final class OptionalAndroidPlatform {
     new MethodSpec("restartApp", void.class, true)
   };
 
-  private OptionalAndroidPlatform() {}
+  private OptionalAndroidBridge() {}
 
   static boolean register(Class<?> mobileClass, Services services) {
     requireNonNull(mobileClass, "mobileClass");
     requireNonNull(services, "services");
 
-    Method register = optionalNamedMethod(mobileClass, "registerAndroidPlatform");
+    Method register = optionalNamedMethod(mobileClass, "registerAndroidBridge");
     if (register == null) {
       return false;
     }
@@ -100,29 +100,29 @@ final class OptionalAndroidPlatform {
     if (register.getReturnType() != void.class || register.getParameterCount() != 1) {
       throw incompatible(
           register,
-          "expected static void registerAndroidPlatform(AndroidPlatform)");
+          "expected static void registerAndroidBridge(AndroidBridge)");
     }
 
-    Class<?> platformType = register.getParameterTypes()[0];
-    if (!platformType.isInterface()) {
-      throw incompatible(register, "AndroidPlatform parameter must be an interface");
+    Class<?> bridgeType = register.getParameterTypes()[0];
+    if (!bridgeType.isInterface()) {
+      throw incompatible(register, "AndroidBridge parameter must be an interface");
     }
-    validatePlatformInterface(platformType);
+    validateBridgeInterface(bridgeType);
 
-    ClassLoader loader = platformType.getClassLoader();
+    ClassLoader loader = bridgeType.getClassLoader();
     if (loader == null) {
       loader = mobileClass.getClassLoader();
     }
     Object proxy = Proxy.newProxyInstance(
         loader,
-        new Class<?>[] {platformType},
-        new PlatformInvocationHandler(services));
+        new Class<?>[] {bridgeType},
+        new BridgeInvocationHandler(services));
 
-    invokeStatic(register, proxy, "AndroidPlatform registration");
+    invokeStatic(register, proxy, "AndroidBridge registration");
     return true;
   }
 
-  /** Applies the API retained for applications that predate AndroidPlatform. */
+  /** Applies the API retained for applications that predate AndroidBridge. */
   static LegacyValues configureLegacy(
       Class<?> mobileClass,
       String androidId,
@@ -178,21 +178,21 @@ final class OptionalAndroidPlatform {
     }
   }
 
-  private static void validatePlatformInterface(Class<?> platformType) {
-    Method[] methods = platformType.getMethods();
-    if (methods.length != PLATFORM_METHODS.length) {
+  private static void validateBridgeInterface(Class<?> bridgeType) {
+    Method[] methods = bridgeType.getMethods();
+    if (methods.length != BRIDGE_METHODS.length) {
       throw new IllegalStateException(
-          "optional gomobile AndroidPlatform " + platformType.getName()
-              + " must expose exactly " + PLATFORM_METHODS.length + " methods");
+          "optional gomobile AndroidBridge " + bridgeType.getName()
+              + " must expose exactly " + BRIDGE_METHODS.length + " methods");
     }
 
-    for (MethodSpec spec : PLATFORM_METHODS) {
+    for (MethodSpec spec : BRIDGE_METHODS) {
       final Method method;
       try {
-        method = platformType.getMethod(spec.name);
+        method = bridgeType.getMethod(spec.name);
       } catch (NoSuchMethodException e) {
         throw new IllegalStateException(
-            "optional gomobile AndroidPlatform " + platformType.getName()
+            "optional gomobile AndroidBridge " + bridgeType.getName()
                 + " is missing " + spec.name + "()",
             e);
       }
@@ -203,7 +203,7 @@ final class OptionalAndroidPlatform {
             "expected " + spec.returnType.getName() + " " + spec.name + "()");
       }
       if (Modifier.isStatic(method.getModifiers()) || !Modifier.isAbstract(method.getModifiers())) {
-        throw incompatible(method, "AndroidPlatform methods must be abstract instance methods");
+        throw incompatible(method, "AndroidBridge methods must be abstract instance methods");
       }
 
       Class<?>[] exceptions = method.getExceptionTypes();
@@ -285,10 +285,10 @@ final class OptionalAndroidPlatform {
     }
   }
 
-  private static final class PlatformInvocationHandler implements InvocationHandler {
+  private static final class BridgeInvocationHandler implements InvocationHandler {
     private final Services services;
 
-    PlatformInvocationHandler(Services services) {
+    BridgeInvocationHandler(Services services) {
       this.services = services;
     }
 
@@ -301,7 +301,7 @@ final class OptionalAndroidPlatform {
           case "hashCode":
             return System.identityHashCode(proxy);
           case "toString":
-            return "OptionalAndroidPlatform.AndroidPlatformProxy";
+            return "OptionalAndroidBridge.AndroidBridgeProxy";
           default:
             throw new IllegalStateException("unsupported Object method " + method.getName());
         }
@@ -353,7 +353,7 @@ final class OptionalAndroidPlatform {
           return null;
         default:
           throw new IllegalStateException(
-              "unsupported AndroidPlatform method " + method.getName());
+              "unsupported AndroidBridge method " + method.getName());
       }
     }
   }

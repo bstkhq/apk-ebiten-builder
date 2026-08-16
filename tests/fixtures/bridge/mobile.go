@@ -21,9 +21,9 @@ type IMEBridge interface {
 
 func RegisterIMEBridge(IMEBridge) {}
 
-// AndroidPlatform is the complete runtime contract implemented by the APK
+// AndroidBridge is the complete runtime contract implemented by the APK
 // builder. Methods returning an error map to Java methods that throw Exception.
-type AndroidPlatform interface {
+type AndroidBridge interface {
 	AndroidID() (string, error)
 	Manufacturer() string
 	Model() string
@@ -47,38 +47,38 @@ type AndroidPlatform interface {
 	RestartApp() error
 }
 
-func RegisterAndroidPlatform(platform AndroidPlatform) {
-	noBackupDir, err := inspectPlatform(platform)
+func RegisterAndroidBridge(bridge AndroidBridge) {
+	noBackupDir, err := inspectBridge(bridge)
 	if err != nil {
-		fmt.Printf("builder-platform-fixture: runtime-error=%v\n", err)
+		fmt.Printf("builder-bridge-fixture: runtime-error=%v\n", err)
 		return
 	}
-	fmt.Println("builder-platform-fixture: runtime-ok")
+	fmt.Println("builder-bridge-fixture: runtime-ok")
 
-	marker := filepath.Join(noBackupDir, "builder-platform-restarted-v1")
+	marker := filepath.Join(noBackupDir, "builder-bridge-restarted-v1")
 	if _, err := os.Stat(marker); err == nil {
-		fmt.Println("builder-platform-fixture: successor-ready")
+		fmt.Println("builder-bridge-fixture: successor-ready")
 		return
 	} else if !os.IsNotExist(err) {
-		fmt.Printf("builder-platform-fixture: marker-stat-error=%v\n", err)
+		fmt.Printf("builder-bridge-fixture: marker-stat-error=%v\n", err)
 		return
 	}
 	if err := os.WriteFile(marker, []byte("restart requested\n"), 0o600); err != nil {
-		fmt.Printf("builder-platform-fixture: marker-write-error=%v\n", err)
+		fmt.Printf("builder-bridge-fixture: marker-write-error=%v\n", err)
 		return
 	}
 
 	go func() {
 		time.Sleep(1500 * time.Millisecond)
-		fmt.Println("builder-platform-fixture: requesting-restart")
-		if err := platform.RestartApp(); err != nil {
-			fmt.Printf("builder-platform-fixture: restart-error=%v\n", err)
+		fmt.Println("builder-bridge-fixture: requesting-restart")
+		if err := bridge.RestartApp(); err != nil {
+			fmt.Printf("builder-bridge-fixture: restart-error=%v\n", err)
 		}
 	}()
 }
 
-func inspectPlatform(platform AndroidPlatform) (string, error) {
-	androidID, err := platform.AndroidID()
+func inspectBridge(bridge AndroidBridge) (string, error) {
+	androidID, err := bridge.AndroidID()
 	if err != nil {
 		return "", fmt.Errorf("AndroidID: %w", err)
 	}
@@ -88,18 +88,18 @@ func inspectPlatform(platform AndroidPlatform) (string, error) {
 	if _, err := strconv.ParseUint(androidID, 16, 64); err != nil {
 		return "", fmt.Errorf("AndroidID: invalid hexadecimal value: %w", err)
 	}
-	fmt.Printf("builder-platform-fixture: android-id=%s\n", androidID)
+	fmt.Printf("builder-bridge-fixture: android-id=%s\n", androidID)
 
-	manufacturer := platform.Manufacturer()
-	model := platform.Model()
-	packageName := platform.PackageName()
-	androidVersion := platform.AndroidVersion()
-	sdkInt := platform.SDKInt()
+	manufacturer := bridge.Manufacturer()
+	model := bridge.Model()
+	packageName := bridge.PackageName()
+	androidVersion := bridge.AndroidVersion()
+	sdkInt := bridge.SDKInt()
 	if manufacturer == "" || model == "" || packageName == "" || androidVersion == "" || sdkInt <= 0 {
 		return "", fmt.Errorf("static runtime metadata is incomplete")
 	}
 	fmt.Printf(
-		"builder-platform-fixture: device=%s/%s android=%s sdk=%d package=%s\n",
+		"builder-bridge-fixture: device=%s/%s android=%s sdk=%d package=%s\n",
 		manufacturer,
 		model,
 		androidVersion,
@@ -107,41 +107,41 @@ func inspectPlatform(platform AndroidPlatform) (string, error) {
 		packageName,
 	)
 
-	versionName, err := platform.VersionName()
+	versionName, err := bridge.VersionName()
 	if err != nil {
 		return "", fmt.Errorf("VersionName: %w", err)
 	}
-	versionCode, err := platform.VersionCode()
+	versionCode, err := bridge.VersionCode()
 	if err != nil {
 		return "", fmt.Errorf("VersionCode: %w", err)
 	}
 	if versionName == "" || versionCode <= 0 {
 		return "", fmt.Errorf("invalid application version %q/%d", versionName, versionCode)
 	}
-	fmt.Printf("builder-platform-fixture: version=%s/%d\n", versionName, versionCode)
+	fmt.Printf("builder-bridge-fixture: version=%s/%d\n", versionName, versionCode)
 
-	timeZone, err := platform.TimeZone()
+	timeZone, err := bridge.TimeZone()
 	if err != nil {
 		return "", fmt.Errorf("TimeZone: %w", err)
 	}
-	locales, err := platform.Locales()
+	locales, err := bridge.Locales()
 	if err != nil {
 		return "", fmt.Errorf("Locales: %w", err)
 	}
 	if timeZone == "" || locales == "" {
 		return "", fmt.Errorf("locale metadata is incomplete")
 	}
-	fmt.Printf("builder-platform-fixture: timezone=%s locales=%s\n", timeZone, locales)
+	fmt.Printf("builder-bridge-fixture: timezone=%s locales=%s\n", timeZone, locales)
 
-	filesDir, err := platform.FilesDir()
+	filesDir, err := bridge.FilesDir()
 	if err != nil {
 		return "", fmt.Errorf("FilesDir: %w", err)
 	}
-	noBackupDir, err := platform.NoBackupFilesDir()
+	noBackupDir, err := bridge.NoBackupFilesDir()
 	if err != nil {
 		return "", fmt.Errorf("NoBackupFilesDir: %w", err)
 	}
-	cacheDir, err := platform.CacheDir()
+	cacheDir, err := bridge.CacheDir()
 	if err != nil {
 		return "", fmt.Errorf("CacheDir: %w", err)
 	}
@@ -149,48 +149,48 @@ func inspectPlatform(platform AndroidPlatform) (string, error) {
 		return "", fmt.Errorf("Android directories must be absolute")
 	}
 	fmt.Printf(
-		"builder-platform-fixture: dirs=%s|%s|%s\n",
+		"builder-bridge-fixture: dirs=%s|%s|%s\n",
 		filesDir,
 		noBackupDir,
 		cacheDir,
 	)
 
-	batteryLevel, err := platform.BatteryLevel()
+	batteryLevel, err := bridge.BatteryLevel()
 	if err != nil {
 		return "", fmt.Errorf("BatteryLevel: %w", err)
 	}
-	batteryPlugged, err := platform.BatteryPlugged()
+	batteryPlugged, err := bridge.BatteryPlugged()
 	if err != nil {
 		return "", fmt.Errorf("BatteryPlugged: %w", err)
 	}
 	if batteryLevel < 0 || batteryLevel > 1 {
 		return "", fmt.Errorf("battery level outside 0..1: %f", batteryLevel)
 	}
-	interactive, err := platform.Interactive()
+	interactive, err := bridge.Interactive()
 	if err != nil {
 		return "", fmt.Errorf("Interactive: %w", err)
 	}
-	powerSave, err := platform.PowerSaveMode()
+	powerSave, err := bridge.PowerSaveMode()
 	if err != nil {
 		return "", fmt.Errorf("PowerSaveMode: %w", err)
 	}
 	fmt.Printf(
-		"builder-platform-fixture: power=%.3f plugged=%t interactive=%t save=%t\n",
+		"builder-bridge-fixture: power=%.3f plugged=%t interactive=%t save=%t\n",
 		batteryLevel,
 		batteryPlugged,
 		interactive,
 		powerSave,
 	)
 
-	transports, err := platform.NetworkTransports()
+	transports, err := bridge.NetworkTransports()
 	if err != nil {
 		return "", fmt.Errorf("NetworkTransports: %w", err)
 	}
-	metered, err := platform.NetworkMetered()
+	metered, err := bridge.NetworkMetered()
 	if err != nil {
 		return "", fmt.Errorf("NetworkMetered: %w", err)
 	}
-	addresses, err := platform.LocalIPAddresses()
+	addresses, err := bridge.LocalIPAddresses()
 	if err != nil {
 		return "", fmt.Errorf("LocalIPAddresses: %w", err)
 	}
@@ -198,7 +198,7 @@ func inspectPlatform(platform AndroidPlatform) (string, error) {
 		return "", fmt.Errorf("network lists must be compact comma-separated values")
 	}
 	fmt.Printf(
-		"builder-platform-fixture: network=%s metered=%t ips=%s\n",
+		"builder-bridge-fixture: network=%s metered=%t ips=%s\n",
 		transports,
 		metered,
 		addresses,

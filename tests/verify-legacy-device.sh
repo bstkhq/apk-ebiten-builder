@@ -49,8 +49,8 @@ while (( SECONDS < deadline )); do
 done
 test "${ready}" = true
 
-if grep -Fq 'AndroidPlatform registered' <<<"${process_log}"; then
-  echo "legacy fixture unexpectedly registered AndroidPlatform" >&2
+if grep -Fq 'AndroidBridge registered' <<<"${process_log}"; then
+  echo "legacy fixture unexpectedly registered AndroidBridge" >&2
   exit 1
 fi
 if grep -Fq 'fatal error' <<<"${process_log}"; then

@@ -9,4 +9,4 @@ test-android: test
 
 test-device: test-android
 	./tests/verify-legacy-device.sh
-	./tests/verify-platform-device.sh
+	./tests/verify-bridge-device.sh

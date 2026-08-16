@@ -1,9 +1,9 @@
 package test.builder;
 
-public final class OptionalAndroidPlatformTest {
+public final class OptionalAndroidBridgeTest {
   private static int checks;
 
-  public interface ValidPlatform {
+  public interface ValidBridge {
     String androidID() throws Exception;
     String manufacturer();
     String model();
@@ -27,7 +27,7 @@ public final class OptionalAndroidPlatformTest {
     void restartApp() throws Exception;
   }
 
-  public interface PlatformWithoutSDK {
+  public interface BridgeWithoutSDK {
     String androidID() throws Exception;
     String manufacturer();
     String model();
@@ -50,24 +50,24 @@ public final class OptionalAndroidPlatformTest {
     void restartApp() throws Exception;
   }
 
-  public interface WrongSDKPlatform extends PlatformWithoutSDK {
+  public interface WrongSDKBridge extends BridgeWithoutSDK {
     long sdkInt();
   }
 
-  public interface ExtraPlatform extends ValidPlatform {
+  public interface ExtraBridge extends ValidBridge {
     String unexpected();
   }
 
-  public interface WrongErrorPlatform extends PlatformWithoutSDK {
+  public interface WrongErrorBridge extends BridgeWithoutSDK {
     int sdkInt() throws Exception;
   }
 
   public static final class ValidMobile {
-    static ValidPlatform platform;
+    static ValidBridge bridge;
     static int registrations;
 
-    public static void registerAndroidPlatform(ValidPlatform value) {
-      platform = value;
+    public static void registerAndroidBridge(ValidBridge value) {
+      bridge = value;
       registrations++;
     }
   }
@@ -115,99 +115,99 @@ public final class OptionalAndroidPlatformTest {
   }
 
   public static final class NonInterfaceMobile {
-    public static void registerAndroidPlatform(String ignored) {}
+    public static void registerAndroidBridge(String ignored) {}
   }
 
   public static final class MissingMethodMobile {
-    public static void registerAndroidPlatform(PlatformWithoutSDK ignored) {}
+    public static void registerAndroidBridge(BridgeWithoutSDK ignored) {}
   }
 
   public static final class WrongReturnMobile {
-    public static void registerAndroidPlatform(WrongSDKPlatform ignored) {}
+    public static void registerAndroidBridge(WrongSDKBridge ignored) {}
   }
 
   public static final class WrongErrorMobile {
-    public static void registerAndroidPlatform(WrongErrorPlatform ignored) {}
+    public static void registerAndroidBridge(WrongErrorBridge ignored) {}
   }
 
   public static final class ExtraMethodMobile {
-    public static void registerAndroidPlatform(ExtraPlatform ignored) {}
+    public static void registerAndroidBridge(ExtraBridge ignored) {}
   }
 
   public static final class NonStaticRegistrationMobile {
-    public void registerAndroidPlatform(ValidPlatform ignored) {}
+    public void registerAndroidBridge(ValidBridge ignored) {}
   }
 
   public static final class OverloadedRegistrationMobile {
-    public static void registerAndroidPlatform(ValidPlatform ignored) {}
-    public static void registerAndroidPlatform(String ignored) {}
+    public static void registerAndroidBridge(ValidBridge ignored) {}
+    public static void registerAndroidBridge(String ignored) {}
   }
 
   public static final class ThrowingRegistrationMobile {
-    public static void registerAndroidPlatform(ValidPlatform ignored) {
+    public static void registerAndroidBridge(ValidBridge ignored) {
       throw new IllegalArgumentException("registration boom");
     }
   }
 
   public static void main(String[] args) throws Exception {
-    testPlatformDelegatesEveryService();
-    testRegistrationCanRefreshThePlatform();
+    testBridgeDelegatesEveryService();
+    testRegistrationCanRefreshTheBridge();
     testServiceExceptionsReachTheGoContract();
     testLegacyCompatibility();
-    testInvalidPlatformContractsFailExplicitly();
+    testInvalidBridgeContractsFailExplicitly();
     testInvocationFailuresKeepTheirCause();
-    System.out.println("OptionalAndroidPlatformTest: " + checks + " checks passed");
+    System.out.println("OptionalAndroidBridgeTest: " + checks + " checks passed");
   }
 
-  private static void testPlatformDelegatesEveryService() throws Exception {
+  private static void testBridgeDelegatesEveryService() throws Exception {
     RecordingServices services = new RecordingServices();
-    ValidMobile.platform = null;
+    ValidMobile.bridge = null;
     ValidMobile.registrations = 0;
 
-    check(OptionalAndroidPlatform.register(ValidMobile.class, services));
-    ValidPlatform platform = ValidMobile.platform;
-    check(platform != null);
-    check("0123456789abcdef".equals(platform.androidID()));
-    check("Samsung".equals(platform.manufacturer()));
-    check("SM-X216B".equals(platform.model()));
-    check("games.example.podium".equals(platform.packageName()));
-    check("1.19.2".equals(platform.versionName()));
-    check(platform.versionCode() == 1190200L);
-    check("14".equals(platform.androidVersion()));
-    check(platform.sdkInt() == 34);
-    check("Europe/Madrid".equals(platform.timeZone()));
-    check("es-ES,en-US".equals(platform.locales()));
-    check("/private/files".equals(platform.filesDir()));
-    check("/private/no-backup".equals(platform.noBackupFilesDir()));
-    check("/private/cache".equals(platform.cacheDir()));
-    check(platform.batteryLevel() == 0.75d);
-    check(platform.batteryPlugged());
-    check(platform.interactive());
-    check(!platform.powerSaveMode());
-    check("wifi,vpn".equals(platform.networkTransports()));
-    check(!platform.networkMetered());
-    check("10.0.3.17,fe80::1%wlan0".equals(platform.localIPAddresses()));
-    platform.restartApp();
+    check(OptionalAndroidBridge.register(ValidMobile.class, services));
+    ValidBridge bridge = ValidMobile.bridge;
+    check(bridge != null);
+    check("0123456789abcdef".equals(bridge.androidID()));
+    check("Samsung".equals(bridge.manufacturer()));
+    check("SM-X216B".equals(bridge.model()));
+    check("games.example.podium".equals(bridge.packageName()));
+    check("1.19.2".equals(bridge.versionName()));
+    check(bridge.versionCode() == 1190200L);
+    check("14".equals(bridge.androidVersion()));
+    check(bridge.sdkInt() == 34);
+    check("Europe/Madrid".equals(bridge.timeZone()));
+    check("es-ES,en-US".equals(bridge.locales()));
+    check("/private/files".equals(bridge.filesDir()));
+    check("/private/no-backup".equals(bridge.noBackupFilesDir()));
+    check("/private/cache".equals(bridge.cacheDir()));
+    check(bridge.batteryLevel() == 0.75d);
+    check(bridge.batteryPlugged());
+    check(bridge.interactive());
+    check(!bridge.powerSaveMode());
+    check("wifi,vpn".equals(bridge.networkTransports()));
+    check(!bridge.networkMetered());
+    check("10.0.3.17,fe80::1%wlan0".equals(bridge.localIPAddresses()));
+    bridge.restartApp();
     check(services.restarts == 1);
     check(services.calls == 21);
 
-    check(platform.equals(platform));
-    check(!platform.equals(services));
-    check(platform.hashCode() == System.identityHashCode(platform));
-    check("OptionalAndroidPlatform.AndroidPlatformProxy".equals(platform.toString()));
+    check(bridge.equals(bridge));
+    check(!bridge.equals(services));
+    check(bridge.hashCode() == System.identityHashCode(bridge));
+    check("OptionalAndroidBridge.AndroidBridgeProxy".equals(bridge.toString()));
   }
 
-  private static void testRegistrationCanRefreshThePlatform() {
+  private static void testRegistrationCanRefreshTheBridge() {
     RecordingServices first = new RecordingServices();
     RecordingServices second = new RecordingServices();
-    ValidMobile.platform = null;
+    ValidMobile.bridge = null;
     ValidMobile.registrations = 0;
 
-    check(OptionalAndroidPlatform.register(ValidMobile.class, first));
-    ValidPlatform original = ValidMobile.platform;
-    check(OptionalAndroidPlatform.register(ValidMobile.class, second));
+    check(OptionalAndroidBridge.register(ValidMobile.class, first));
+    ValidBridge original = ValidMobile.bridge;
+    check(OptionalAndroidBridge.register(ValidMobile.class, second));
     check(ValidMobile.registrations == 2);
-    check(ValidMobile.platform != original);
+    check(ValidMobile.bridge != original);
   }
 
   private static void testServiceExceptionsReachTheGoContract() {
@@ -218,9 +218,9 @@ public final class OptionalAndroidPlatformTest {
         throw expected;
       }
     };
-    check(OptionalAndroidPlatform.register(ValidMobile.class, services));
+    check(OptionalAndroidBridge.register(ValidMobile.class, services));
     try {
-      ValidMobile.platform.androidID();
+      ValidMobile.bridge.androidID();
     } catch (Exception actual) {
       check(actual == expected);
       return;
@@ -230,10 +230,10 @@ public final class OptionalAndroidPlatformTest {
 
   private static void testLegacyCompatibility() {
     RecordingServices services = new RecordingServices();
-    check(!OptionalAndroidPlatform.register(LegacyMobile.class, services));
+    check(!OptionalAndroidBridge.register(LegacyMobile.class, services));
 
-    OptionalAndroidPlatform.LegacyValues values =
-        OptionalAndroidPlatform.configureLegacy(
+    OptionalAndroidBridge.LegacyValues values =
+        OptionalAndroidBridge.configureLegacy(
             LegacyMobile.class,
             "ffffffffffffffff",
             "Europe/Madrid");
@@ -242,7 +242,7 @@ public final class OptionalAndroidPlatformTest {
     check(LegacyMobile.androidId == Long.MAX_VALUE);
     check("Europe/Madrid".equals(LegacyMobile.timeZone));
 
-    values = OptionalAndroidPlatform.configureLegacy(
+    values = OptionalAndroidBridge.configureLegacy(
         LegacyWithoutTimezone.class,
         "000000000000002a",
         "UTC");
@@ -250,41 +250,41 @@ public final class OptionalAndroidPlatformTest {
     check(!values.timeZoneApplied);
     check(LegacyWithoutTimezone.androidId == 42L);
 
-    expectIllegalState(() -> OptionalAndroidPlatform.configureLegacy(
+    expectIllegalState(() -> OptionalAndroidBridge.configureLegacy(
         MissingLegacyAndroidID.class, "1", "UTC"));
-    expectIllegalState(() -> OptionalAndroidPlatform.configureLegacy(
+    expectIllegalState(() -> OptionalAndroidBridge.configureLegacy(
         WrongLegacyAndroidID.class, "1", "UTC"));
     WrongLegacyTimezone.androidIdCalls = 0;
-    expectIllegalState(() -> OptionalAndroidPlatform.configureLegacy(
+    expectIllegalState(() -> OptionalAndroidBridge.configureLegacy(
         WrongLegacyTimezone.class, "1", "UTC"));
     check(WrongLegacyTimezone.androidIdCalls == 0);
-    expectIllegalState(() -> OptionalAndroidPlatform.configureLegacy(
+    expectIllegalState(() -> OptionalAndroidBridge.configureLegacy(
         LegacyMobile.class, "not-hex", "UTC"));
   }
 
-  private static void testInvalidPlatformContractsFailExplicitly() {
+  private static void testInvalidBridgeContractsFailExplicitly() {
     RecordingServices services = new RecordingServices();
-    expectIllegalState(() -> OptionalAndroidPlatform.register(NonInterfaceMobile.class, services));
-    expectIllegalState(() -> OptionalAndroidPlatform.register(MissingMethodMobile.class, services));
-    expectIllegalState(() -> OptionalAndroidPlatform.register(WrongReturnMobile.class, services));
-    expectIllegalState(() -> OptionalAndroidPlatform.register(WrongErrorMobile.class, services));
-    expectIllegalState(() -> OptionalAndroidPlatform.register(ExtraMethodMobile.class, services));
-    expectIllegalState(() -> OptionalAndroidPlatform.register(
+    expectIllegalState(() -> OptionalAndroidBridge.register(NonInterfaceMobile.class, services));
+    expectIllegalState(() -> OptionalAndroidBridge.register(MissingMethodMobile.class, services));
+    expectIllegalState(() -> OptionalAndroidBridge.register(WrongReturnMobile.class, services));
+    expectIllegalState(() -> OptionalAndroidBridge.register(WrongErrorMobile.class, services));
+    expectIllegalState(() -> OptionalAndroidBridge.register(ExtraMethodMobile.class, services));
+    expectIllegalState(() -> OptionalAndroidBridge.register(
         NonStaticRegistrationMobile.class, services));
-    expectIllegalState(() -> OptionalAndroidPlatform.register(
+    expectIllegalState(() -> OptionalAndroidBridge.register(
         OverloadedRegistrationMobile.class, services));
   }
 
   private static void testInvocationFailuresKeepTheirCause() {
     IllegalStateException registration = expectIllegalState(() ->
-        OptionalAndroidPlatform.register(
+        OptionalAndroidBridge.register(
             ThrowingRegistrationMobile.class,
             new RecordingServices()));
     check(registration.getCause() instanceof IllegalArgumentException);
     check("registration boom".equals(registration.getCause().getMessage()));
 
     IllegalStateException legacy = expectIllegalState(() ->
-        OptionalAndroidPlatform.configureLegacy(
+        OptionalAndroidBridge.configureLegacy(
             ThrowingLegacyMobile.class,
             "1",
             "UTC"));
@@ -309,7 +309,7 @@ public final class OptionalAndroidPlatformTest {
     }
   }
 
-  private static class RecordingServices implements OptionalAndroidPlatform.Services {
+  private static class RecordingServices implements OptionalAndroidBridge.Services {
     int calls;
     int restarts;
 

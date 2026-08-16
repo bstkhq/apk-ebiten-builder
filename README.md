@@ -20,7 +20,7 @@ Inspired by the practices from `github.com/programatta/demoandroid` (the "do it 
 - [Configuration variables](#configuration-variables)
   - [VERSION_CODE derived from VERSION](#version_code-derived-from-version)
   - [Injecting variables into Go (ldflags)](#injecting-variables-into-go-ldflags)
-- [Android runtime platform](#android-runtime-platform)
+- [Android runtime bridge](#android-runtime-bridge)
 - [Automated tests](#automated-tests)
 - [Include.mk targets](#includemk-targets)
 - [How template substitution works](#how-template-substitution-works)
@@ -141,14 +141,14 @@ export GO_LDFLAGS
 See the sample project `Makefile` (Buzzattack Kiosk) for a complete pattern with an optional `CONTROL_URL`.
 
 
-## Android runtime platform
+## Android runtime bridge
 
 An application can opt in to Android runtime services by exporting this Go
 interface and registration function from the package passed to
 `ebitenmobile bind`:
 
 ```go
-type AndroidPlatform interface {
+type AndroidBridge interface {
 	AndroidID() (string, error)
 	Manufacturer() string
 	Model() string
@@ -172,7 +172,7 @@ type AndroidPlatform interface {
 	RestartApp() error
 }
 
-func RegisterAndroidPlatform(platform AndroidPlatform) {
+func RegisterAndroidBridge(bridge AndroidBridge) {
 	// Store or replace the current value. Android can recreate MainActivity.
 }
 ```
@@ -221,12 +221,12 @@ The repository includes three progressively broader gates:
 
 ```bash
 make test          # Java reflection contract and generated-template tests
-make test-android  # both gates above + legacy/platform APKs and Android lint
+make test-android  # both gates above + legacy/bridge APKs and Android lint
 make test-device   # both gates above + runtime and safe-restart device checks
 ```
 
 The Android build gate compiles both a legacy package and an
-AndroidPlatform-only package, inspects the actual gomobile Java signatures,
+AndroidBridge-only package, inspects the actual gomobile Java signatures,
 runs Debug and Release lint, verifies APK signatures, and checks 16 KiB ZIP
 and native ELF alignment. It defaults to amd64 plus arm64; override
 `ANDROID_TARGET` when a narrower fixture is required.

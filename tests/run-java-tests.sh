@@ -12,9 +12,9 @@ classes_dir="${scratch_dir}/classes"
 mkdir -p "${source_dir}" "${classes_dir}"
 
 perl -pe 's/\@\@APP_ID\@\@/test.builder/g' \
-  "${repo_dir}/android/app/src/main/java/OptionalAndroidPlatform.java" \
-  > "${source_dir}/OptionalAndroidPlatform.java"
-cp "${repo_dir}/tests/java/OptionalAndroidPlatformTest.java" "${source_dir}/"
+  "${repo_dir}/android/app/src/main/java/OptionalAndroidBridge.java" \
+  > "${source_dir}/OptionalAndroidBridge.java"
+cp "${repo_dir}/tests/java/OptionalAndroidBridgeTest.java" "${source_dir}/"
 
 javac -Xlint:all -Werror -d "${classes_dir}" "${source_dir}"/*.java
-java -ea -cp "${classes_dir}" test.builder.OptionalAndroidPlatformTest
+java -ea -cp "${classes_dir}" test.builder.OptionalAndroidBridgeTest

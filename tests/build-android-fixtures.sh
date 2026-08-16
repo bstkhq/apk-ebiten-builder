@@ -83,30 +83,30 @@ build_fixture() {
   if [[ "${fixture}" == legacy ]]; then
     grep -Fq 'public static native void setAndroidID(long);' <<<"${mobile_signature}"
     grep -Fq 'public static native void setTimezone(java.lang.String);' <<<"${mobile_signature}"
-    if grep -Fq 'registerAndroidPlatform' <<<"${mobile_signature}"; then
-      echo "legacy fixture unexpectedly exports AndroidPlatform" >&2
+    if grep -Fq 'registerAndroidBridge' <<<"${mobile_signature}"; then
+      echo "legacy fixture unexpectedly exports AndroidBridge" >&2
       exit 1
     fi
   else
-    grep -Fq 'registerAndroidPlatform' <<<"${mobile_signature}"
+    grep -Fq 'registerAndroidBridge' <<<"${mobile_signature}"
     if grep -Fq 'setAndroidID' <<<"${mobile_signature}"; then
-      echo "platform fixture unexpectedly depends on legacy setAndroidID" >&2
+      echo "bridge fixture unexpectedly depends on legacy setAndroidID" >&2
       exit 1
     fi
 
-    local platform_signature
-    platform_signature="$(
+    local bridge_signature
+    bridge_signature="$(
       javap -public -classpath "${inspect_dir}/classes.jar" \
-        "${app_id}.corelib.mobile.AndroidPlatform"
+        "${app_id}.corelib.mobile.AndroidBridge"
     )"
-    test "$(grep -Ec '^  public abstract ' <<<"${platform_signature}")" -eq 21
+    test "$(grep -Ec '^  public abstract ' <<<"${bridge_signature}")" -eq 21
     grep -Fq 'public abstract java.lang.String androidID() throws java.lang.Exception;' \
-      <<<"${platform_signature}"
-    grep -Fq 'public abstract int sdkInt();' <<<"${platform_signature}"
+      <<<"${bridge_signature}"
+    grep -Fq 'public abstract int sdkInt();' <<<"${bridge_signature}"
     grep -Fq 'public abstract java.lang.String localIPAddresses() throws java.lang.Exception;' \
-      <<<"${platform_signature}"
+      <<<"${bridge_signature}"
     grep -Fq 'public abstract void restartApp() throws java.lang.Exception;' \
-      <<<"${platform_signature}"
+      <<<"${bridge_signature}"
   fi
 
   local manifest
@@ -140,4 +140,4 @@ build_fixture() {
 }
 
 build_fixture legacy v1.0.1 ""
-build_fixture platform v1.0.2 true
+build_fixture bridge v1.0.2 true

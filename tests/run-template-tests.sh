@@ -48,10 +48,10 @@ grep -Fq 'android:theme="@style/RestartTheme"' "${default_manifest}"
 grep -Fq 'versionCode 1190200' "${default_gradle}"
 
 test -f "${generated_java}/MainActivity.java"
-test -f "${generated_java}/OptionalAndroidPlatform.java"
-test -f "${generated_java}/AndroidPlatformServices.java"
+test -f "${generated_java}/OptionalAndroidBridge.java"
+test -f "${generated_java}/AndroidBridgeServices.java"
 test -f "${generated_java}/ProcessRestartActivity.java"
-grep -Fq 'registerAndroidPlatform' "${generated_java}/OptionalAndroidPlatform.java"
+grep -Fq 'registerAndroidBridge' "${generated_java}/OptionalAndroidBridge.java"
 grep -Fq 'linkToDeath(deathRecipient, 0)' "${generated_java}/ProcessRestartActivity.java"
 grep -Fq 'Process.killProcess(previousPid)' "${generated_java}/ProcessRestartActivity.java"
 if grep -Fq 'ActivityManager' "${generated_java}/ProcessRestartActivity.java"; then
