@@ -308,21 +308,26 @@ it is no longer needed. Calling `SetHandler(nil)` stops result delivery.
 The repository includes three progressively broader gates:
 
 ```bash
-make test          # Java reflection contract and generated-template tests
+make test          # Java/Go contracts, templates and device-helper tests
 make test-android  # gates above + legacy/bridge/Back/picker APKs and Android lint
 make test-device   # build gate + runtime, restart, Back and picker device checks
 ```
 
-The Android build gate compiles legacy, AndroidBridge-only, independent Back,
-and independent file-picker packages. It inspects the actual gomobile Java
-signatures, runs Debug and Release lint, verifies APK signatures, and checks
-16 KiB ZIP and native ELF alignment. It defaults to amd64 plus arm64; override
+The Android build gate compiles legacy, AndroidBridge-only, independent
+BackBridge and independent file-picker packages, inspects the actual gomobile
+Java signatures, runs Debug and Release lint, verifies APK signatures, and
+checks 16 KiB ZIP and native ELF alignment. It defaults to amd64 plus arm64;
+override
 `ANDROID_TARGET` when a narrower fixture is required.
 
 The device scripts accept `ADB_SERIAL=<serial>` and
 `DEVICE_TIMEOUT_SECONDS=<seconds>`. They install only the private fixture
 packages under `games.example.builder.*` and force-stop those fixtures on
-exit.
+exit. Before changing the tablet, the shared device harness records its
+`GoLog` level and keep-awake setting. It wakes and unlocks the display, waits
+for the launcher transition to settle, requires a stable top-resumed Activity,
+and restores the recorded settings even when a gate fails. The helper itself
+is covered with a fake ADB transport, including the unset-setting case.
 
 
 <a id="includemk-targets"></a>
