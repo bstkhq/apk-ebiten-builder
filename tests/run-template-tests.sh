@@ -90,12 +90,18 @@ link_line="$(grep -n 'deathToken.linkToDeath(deathRecipient, 0)' "${generated_ja
 kill_line="$(grep -n 'Process.killProcess(previousPid)' "${generated_java}/ProcessRestartActivity.java" | cut -d: -f1)"
 test "${link_line}" -lt "${kill_line}"
 
-# Existing IME behavior is deliberately outside this change.
 grep -Fq 'Mobile.registerIMEBridge(new IMEBridge()' "${generated_java}/MainActivity.java"
 grep -Fq 'view.prepareShowIME(inputType, imeOptions, keyboardCompatibility())' \
   "${generated_java}/MainActivity.java"
+grep -Fq 'public boolean onCheckIsTextEditor()' "${generated_java}/EbitenExtendedView.java"
+grep -Fq 'return this.currentInputType >= 0;' "${generated_java}/EbitenExtendedView.java"
+grep -Fq 'showImeWhenReady(view, generation)' "${generated_java}/MainActivity.java"
+grep -Fq '!view.hasWindowFocus() || !view.isFocused()' "${generated_java}/MainActivity.java"
 grep -Fq 'imm.restartInput(view)' "${generated_java}/MainActivity.java"
-grep -Fq 'imm.showSoftInput(view, 0)' "${generated_java}/MainActivity.java"
+grep -Fq 'insetsController.show(WindowInsetsCompat.Type.ime())' \
+  "${generated_java}/MainActivity.java"
+grep -Fq 'imeRequestGeneration++;' "${generated_java}/MainActivity.java"
+grep -Fq 'imeShowPending = false;' "${generated_java}/MainActivity.java"
 
 if grep -R -n '@@[A-Z_][A-Z_]*@@' "${default_dir}/.build/android"; then
   echo "unresolved Android template placeholder" >&2
@@ -126,4 +132,4 @@ for invalid in '' TRUE yes 1 'true false'; do
   fi
 done
 
-echo "run-template-tests: defaults, strict backup/cleartext/Back options, bridges, restart and IME isolation passed"
+echo "run-template-tests: defaults, strict backup/cleartext/Back options, bridges, restart and focused IME lifecycle passed"
