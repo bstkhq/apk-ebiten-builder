@@ -28,7 +28,7 @@ generate "${default_dir}" VERSION=v1.19.2
 generate "${cleartext_true_dir}" USES_CLEARTEXT_TRAFFIC=true \
   ENABLE_ON_BACK_INVOKED_CALLBACK=true SCREEN_ORIENTATION=landscape
 generate "${cleartext_false_dir}" USES_CLEARTEXT_TRAFFIC=false \
-  ENABLE_ON_BACK_INVOKED_CALLBACK=false
+  ENABLE_ON_BACK_INVOKED_CALLBACK=false ALLOW_BACKUP=' false '
 
 default_manifest="${default_dir}/.build/android/app/src/main/AndroidManifest.xml"
 true_manifest="${cleartext_true_dir}/.build/android/app/src/main/AndroidManifest.xml"
@@ -37,6 +37,7 @@ default_gradle="${default_dir}/.build/android/app/build.gradle"
 generated_java="${default_dir}/.build/android/app/src/main/java/games/example/fixture"
 
 grep -Fq 'android:allowBackup="true"' "${default_manifest}"
+grep -Fq 'android:allowBackup="false"' "${false_manifest}"
 if grep -Fq 'android:usesCleartextTraffic=' "${default_manifest}"; then
   echo "default manifest unexpectedly overrides Android cleartext policy" >&2
   exit 1
@@ -105,4 +106,12 @@ for invalid in TRUE yes 1 'true false'; do
   fi
 done
 
-echo "run-template-tests: defaults, strict cleartext/Back options, bridges, restart and IME isolation passed"
+for invalid in '' TRUE yes 1 'true false'; do
+  invalid_dir="${scratch_dir}/invalid-backup-${invalid// /-}"
+  if generate "${invalid_dir}" ALLOW_BACKUP="${invalid}" >/dev/null 2>&1; then
+    echo "invalid ALLOW_BACKUP=${invalid} was accepted" >&2
+    exit 1
+  fi
+done
+
+echo "run-template-tests: defaults, strict backup/cleartext/Back options, bridges, restart and IME isolation passed"
