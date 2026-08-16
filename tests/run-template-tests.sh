@@ -24,16 +24,22 @@ generate() {
 default_dir="${scratch_dir}/default"
 cleartext_true_dir="${scratch_dir}/cleartext-true"
 cleartext_false_dir="${scratch_dir}/cleartext-false"
+zero_major_dir="${scratch_dir}/zero-major"
+padded_components_dir="${scratch_dir}/padded-components"
 generate "${default_dir}" VERSION=v1.19.2
 generate "${cleartext_true_dir}" USES_CLEARTEXT_TRAFFIC=true \
   ENABLE_ON_BACK_INVOKED_CALLBACK=true SCREEN_ORIENTATION=landscape
 generate "${cleartext_false_dir}" USES_CLEARTEXT_TRAFFIC=false \
   ENABLE_ON_BACK_INVOKED_CALLBACK=false ALLOW_BACKUP=' false '
+generate "${zero_major_dir}" VERSION=v0.8.9
+generate "${padded_components_dir}" VERSION=v01.08.09.07
 
 default_manifest="${default_dir}/.build/android/app/src/main/AndroidManifest.xml"
 true_manifest="${cleartext_true_dir}/.build/android/app/src/main/AndroidManifest.xml"
 false_manifest="${cleartext_false_dir}/.build/android/app/src/main/AndroidManifest.xml"
 default_gradle="${default_dir}/.build/android/app/build.gradle"
+zero_major_gradle="${zero_major_dir}/.build/android/app/build.gradle"
+padded_components_gradle="${padded_components_dir}/.build/android/app/build.gradle"
 generated_java="${default_dir}/.build/android/app/src/main/java/games/example/fixture"
 
 grep -Fq 'android:allowBackup="true"' "${default_manifest}"
@@ -55,6 +61,12 @@ grep -Fq 'android:exported="false"' "${default_manifest}"
 grep -Fq 'android:process=":restart"' "${default_manifest}"
 grep -Fq 'android:theme="@style/RestartTheme"' "${default_manifest}"
 grep -Fq 'versionCode 1190200' "${default_gradle}"
+grep -Fq 'versionCode 80900' "${zero_major_gradle}"
+grep -Fq 'versionCode 1080907' "${padded_components_gradle}"
+if grep -Eq 'versionCode 0[0-9]+' "${zero_major_gradle}" "${padded_components_gradle}"; then
+  echo "versionCode was emitted as a leading-zero Gradle literal" >&2
+  exit 1
+fi
 
 test -f "${generated_java}/MainActivity.java"
 test -f "${generated_java}/OptionalAndroidBridge.java"
