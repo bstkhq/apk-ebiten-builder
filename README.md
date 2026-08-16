@@ -1,5 +1,7 @@
 # apk-ebiten-builder
 
+[![CI](https://github.com/bstkhq/apk-ebiten-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/bstkhq/apk-ebiten-builder/actions/workflows/ci.yml)
+
 Build any **Ebiten** game as an **Android APK** using a `Makefile`-based workflow, **without Android Studio**.
 
 This repo is a reusable Android/Gradle template with build rules (`Include.mk`) that your project imports from its own `Makefile`. It handles:
@@ -318,6 +320,9 @@ BackBridge and independent file-picker packages, inspects the actual gomobile
 Java signatures, runs Debug and Release lint, verifies APK signatures, and
 checks 16 KiB ZIP and native ELF alignment. It defaults to amd64 plus arm64;
 override `ANDROID_TARGET` when a narrower fixture is required.
+
+GitHub Actions runs `make test-android` for every push and pull request. The
+device gate remains manual because it requires a connected Android device.
 
 The device scripts accept `ADB_SERIAL=<serial>` and
 `DEVICE_TIMEOUT_SECONDS=<seconds>`. They install only the private fixture
