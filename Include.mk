@@ -17,6 +17,7 @@ USES_CLEARTEXT_TRAFFIC ?=
 ENABLE_ON_BACK_INVOKED_CALLBACK ?=
 LOG_TAG = GoLog
 
+override ALLOW_BACKUP := $(strip $(ALLOW_BACKUP))
 ifneq ($(words $(strip $(ALLOW_BACKUP))),1)
   $(error ALLOW_BACKUP must be true or false)
 endif

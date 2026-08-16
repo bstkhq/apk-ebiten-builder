@@ -28,7 +28,7 @@ generate "${default_dir}" VERSION=v1.19.2
 generate "${cleartext_true_dir}" USES_CLEARTEXT_TRAFFIC=true \
   ENABLE_ON_BACK_INVOKED_CALLBACK=true SCREEN_ORIENTATION=landscape
 generate "${cleartext_false_dir}" USES_CLEARTEXT_TRAFFIC=false \
-  ENABLE_ON_BACK_INVOKED_CALLBACK=false ALLOW_BACKUP=false
+  ENABLE_ON_BACK_INVOKED_CALLBACK=false ALLOW_BACKUP=' false '
 
 default_manifest="${default_dir}/.build/android/app/src/main/AndroidManifest.xml"
 true_manifest="${cleartext_true_dir}/.build/android/app/src/main/AndroidManifest.xml"
