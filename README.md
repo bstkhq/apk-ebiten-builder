@@ -21,6 +21,7 @@ Inspired by the practices from `github.com/programatta/demoandroid` (the "do it 
   - [VERSION_CODE derived from VERSION](#version_code-derived-from-version)
   - [Injecting variables into Go (ldflags)](#injecting-variables-into-go-ldflags)
 - [Android runtime bridge](#android-runtime-bridge)
+- [Android Back bridge](#android-back-bridge)
 - [Automated tests](#automated-tests)
 - [Include.mk targets](#includemk-targets)
 - [How template substitution works](#how-template-substitution-works)
@@ -115,6 +116,7 @@ Defined in `Include.mk`. Override from your `Makefile` or on the command line.
 | `VERSION`            | `v1.0.0`                    | `versionName`. `VERSION_CODE` is derived automatically.                  |
 | `SCREEN_ORIENTATION` | `fullSensor`                | Value for `android:screenOrientation`.                                   |
 | `USES_CLEARTEXT_TRAFFIC` | *(empty)*               | Optional `true`/`false` manifest override. Empty preserves Android's default. |
+| `ENABLE_ON_BACK_INVOKED_CALLBACK` | *(empty)*       | Optional `true`/`false` predictive-Back manifest override. |
 | `ANDROID_SDK_ROOT`   | *(required)*                | SDK root. Populated by `Dependencies.mk`.                                |
 | `DEBUG`              | `0`                         | `1` shows full Gradle output.                                            |
 | `NO_COLOR`           | *(empty)*                   | `1` disables colored log prefixes.                                       |
@@ -205,14 +207,50 @@ Legacy applications continue to receive `SetAndroidID(int64)` and, when
 present, `SetTimezone(string)`. Both exports are deprecated for new code; the
 signed Android ID retains its historical high-bit mask for compatibility.
 
-The bridge needs no dangerous runtime permission. It intentionally excludes
+The runtime bridge needs no dangerous permission. It intentionally excludes
 SSID, hardware serial, MAC address, public IP and location because those need
-permissions, privileged access, or an external service. It also does not
-change the existing IME integration or add Back-button behavior.
+permissions, privileged access, or an external service. It does not change the
+existing IME integration; Back has its own optional bridge below.
 
 For an HTTP-only Control endpoint, set `USES_CLEARTEXT_TRAFFIC=true`. The
 option is strict: only empty, `true`, or `false` is accepted, and the default
 leaves Android's manifest policy untouched.
+
+
+## Android Back bridge
+
+Back dispatch is an independent optional contract because Android calls into
+Go, while `AndroidBridge` exposes services that Go calls. Applications opt in
+with these gomobile-compatible interfaces:
+
+```go
+type BackHandler interface {
+	OnBack() bool
+}
+
+type BackBridge interface {
+	SetHandler(BackHandler)
+}
+
+func RegisterBackBridge(bridge BackBridge) {
+	bridge.SetHandler(applicationBackHandler{})
+}
+```
+
+`OnBack` runs on Android's UI thread. It returns `true` to consume the event or
+`false` to continue through the Activity's existing default behavior. Passing
+`nil` to `SetHandler` restores the default. Android can recreate the Activity,
+so `RegisterBackBridge` must replace the stored bridge and install the current
+handler each time, just like `RegisterAndroidBridge` and `RegisterIMEBridge`.
+
+Legacy applications that do not export the complete contract are unchanged.
+The adapter deduplicates a physical Back key that also reaches AndroidX's
+dispatcher, so Go observes one semantic event. Named exports with partial,
+extra or incompatible methods fail explicitly.
+
+Set `ENABLE_ON_BACK_INVOKED_CALLBACK=true` only when the application wants the
+Android 13+ predictive-Back dispatcher. Empty preserves the existing manifest;
+only empty, `true` and `false` are accepted.
 
 
 ## Automated tests

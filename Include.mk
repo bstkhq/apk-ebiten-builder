@@ -13,6 +13,7 @@ VERSION ?= v1.0.0
 ROOT_DIR ?= $(abspath .)
 SCREEN_ORIENTATION ?= fullSensor
 USES_CLEARTEXT_TRAFFIC ?=
+ENABLE_ON_BACK_INVOKED_CALLBACK ?=
 LOG_TAG = GoLog
 
 USES_CLEARTEXT_TRAFFIC_ATTRIBUTE :=
@@ -24,6 +25,17 @@ ifneq ($(strip $(USES_CLEARTEXT_TRAFFIC)),)
     $(error USES_CLEARTEXT_TRAFFIC must be empty, true or false)
   endif
   USES_CLEARTEXT_TRAFFIC_ATTRIBUTE := android:usesCleartextTraffic="$(strip $(USES_CLEARTEXT_TRAFFIC))"
+endif
+
+ENABLE_ON_BACK_INVOKED_CALLBACK_ATTRIBUTE :=
+ifneq ($(strip $(ENABLE_ON_BACK_INVOKED_CALLBACK)),)
+  ifneq ($(words $(strip $(ENABLE_ON_BACK_INVOKED_CALLBACK))),1)
+    $(error ENABLE_ON_BACK_INVOKED_CALLBACK must be empty, true or false)
+  endif
+  ifneq ($(filter true false,$(strip $(ENABLE_ON_BACK_INVOKED_CALLBACK))),$(strip $(ENABLE_ON_BACK_INVOKED_CALLBACK)))
+    $(error ENABLE_ON_BACK_INVOKED_CALLBACK must be empty, true or false)
+  endif
+  ENABLE_ON_BACK_INVOKED_CALLBACK_ATTRIBUTE := android:enableOnBackInvokedCallback="$(strip $(ENABLE_ON_BACK_INVOKED_CALLBACK))"
 endif
 
 # Optional Go ldflags passed to `ebitenmobile bind` for compile-time injection
@@ -110,9 +122,11 @@ VERSION_CODE := $(shell bash -lc '\
 # Names of placeholders to replace in templates: @@VAR@@
 TEMPLATE_VARS := APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY \
 	ANDROID_SDK_ROOT VERSION VERSION_CODE SCREEN_ORIENTATION \
-	USES_CLEARTEXT_TRAFFIC_ATTRIBUTE LOG_TAG
+	USES_CLEARTEXT_TRAFFIC_ATTRIBUTE ENABLE_ON_BACK_INVOKED_CALLBACK_ATTRIBUTE \
+	LOG_TAG
 export APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY ANDROID_SDK_ROOT VERSION \
-	VERSION_CODE SCREEN_ORIENTATION USES_CLEARTEXT_TRAFFIC_ATTRIBUTE LOG_TAG
+	VERSION_CODE SCREEN_ORIENTATION USES_CLEARTEXT_TRAFFIC_ATTRIBUTE \
+	ENABLE_ON_BACK_INVOKED_CALLBACK_ATTRIBUTE LOG_TAG
 
 # Which files are considered "text templates"
 TEMPLATE_FILE_GLOBS := -name "*.gradle" -o -name "*.properties" \
@@ -165,6 +179,7 @@ info:
 	@echo "    VERSION       : $(VERSION)"
 	@echo "    VERSION_CODE  : $(VERSION_CODE)"
 	@echo "    CLEARTEXT     : $(if $(USES_CLEARTEXT_TRAFFIC),$(USES_CLEARTEXT_TRAFFIC),manifest default)"
+	@echo "    BACK_INVOKED  : $(if $(ENABLE_ON_BACK_INVOKED_CALLBACK),$(ENABLE_ON_BACK_INVOKED_CALLBACK),manifest default)"
 	@echo "    AAR           : $(AAR_PATH)"
 	@echo "    APK           : $(APK_DEBUG)"
 	@echo "    DEBUG         : $(DEBUG)"

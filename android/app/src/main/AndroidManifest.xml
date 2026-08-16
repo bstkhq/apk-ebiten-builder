@@ -9,6 +9,7 @@
     android:supportsRtl="true"
     android:allowBackup="true"
     @@USES_CLEARTEXT_TRAFFIC_ATTRIBUTE@@
+    @@ENABLE_ON_BACK_INVOKED_CALLBACK_ATTRIBUTE@@
     android:label="@@APP_NAME@@"
     android:theme="@style/SplashTheme">
     <activity

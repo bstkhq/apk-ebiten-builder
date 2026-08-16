@@ -11,10 +11,14 @@ source_dir="${scratch_dir}/src/test/builder"
 classes_dir="${scratch_dir}/classes"
 mkdir -p "${source_dir}" "${classes_dir}"
 
-perl -pe 's/\@\@APP_ID\@\@/test.builder/g' \
-  "${repo_dir}/android/app/src/main/java/OptionalAndroidBridge.java" \
-  > "${source_dir}/OptionalAndroidBridge.java"
+for source in OptionalAndroidBridge OptionalBackBridge; do
+  perl -pe 's/\@\@APP_ID\@\@/test.builder/g' \
+    "${repo_dir}/android/app/src/main/java/${source}.java" \
+    > "${source_dir}/${source}.java"
+done
 cp "${repo_dir}/tests/java/OptionalAndroidBridgeTest.java" "${source_dir}/"
+cp "${repo_dir}/tests/java/OptionalBackBridgeTest.java" "${source_dir}/"
 
 javac -Xlint:all -Werror -d "${classes_dir}" "${source_dir}"/*.java
 java -ea -cp "${classes_dir}" test.builder.OptionalAndroidBridgeTest
+java -ea -cp "${classes_dir}" test.builder.OptionalBackBridgeTest

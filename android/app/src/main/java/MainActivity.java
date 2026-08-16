@@ -3,12 +3,14 @@ package @@APP_ID@@;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 
 import android.content.Context;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.EditorInfo;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -21,6 +23,10 @@ import @@JAVA_PKG@@.@@GO_PKG@@.IMEBridge;
 
 public class MainActivity extends AppCompatActivity {
   private static final String TAG = "@@LOG_TAG@@";
+
+  private OptionalBackBridge.Registration backRegistration;
+  private boolean backKeyInProgress;
+  private boolean backKeyConsumed;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -47,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
           Log.i(TAG, "onCreate: setTimezone(string) not declared, skipping");
         }
       }
+      registerOptionalBackBridge();
 
       setContentView(R.layout.activity_main);
       Log.i(TAG, "onCreate: setContentView ok");
@@ -108,6 +115,38 @@ public class MainActivity extends AppCompatActivity {
   }
 
   @Override
+  public boolean dispatchKeyEvent(KeyEvent event) {
+    if (event.getKeyCode() != KeyEvent.KEYCODE_BACK
+        || backRegistration == null
+        || !backRegistration.hasHandler()) {
+      return super.dispatchKeyEvent(event);
+    }
+
+    if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+      backKeyInProgress = true;
+      backKeyConsumed = backRegistration.onBack();
+      if (backKeyConsumed) {
+        Log.i(TAG, "Back key consumed by Go");
+      }
+    }
+
+    if (backKeyConsumed) {
+      if (event.getAction() == KeyEvent.ACTION_UP) {
+        backKeyInProgress = false;
+        backKeyConsumed = false;
+      }
+      return true;
+    }
+
+    boolean handled = super.dispatchKeyEvent(event);
+    if (event.getAction() == KeyEvent.ACTION_UP) {
+      backKeyInProgress = false;
+      backKeyConsumed = false;
+    }
+    return handled;
+  }
+
+  @Override
   protected void onStart() {
     Log.i(TAG, "onStart");
     super.onStart();
@@ -153,6 +192,40 @@ public class MainActivity extends AppCompatActivity {
 
   private EbitenExtendedView getEbitenView() {
     return (EbitenExtendedView) this.findViewById(R.id.ebitenview);
+  }
+
+  private void registerOptionalBackBridge() {
+    backRegistration = OptionalBackBridge.register(Mobile.class);
+    if (!backRegistration.isAvailable()) {
+      Log.i(TAG, "onCreate: BackBridge not declared, preserving default behavior");
+      return;
+    }
+
+    getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+      @Override
+      public void handleOnBackPressed() {
+        // A hardware Back key can reach the dispatcher after dispatchKeyEvent
+        // already asked Go. Reuse that decision so a false handler has no
+        // duplicate side effects.
+        boolean consumed = backKeyInProgress
+            ? backKeyConsumed
+            : backRegistration.onBack();
+        if (consumed) {
+          Log.i(TAG, "Back consumed by Go");
+          return;
+        }
+
+        // Temporarily disable this callback so the dispatcher reaches the
+        // Activity's pre-existing fallback without recursing into Go.
+        setEnabled(false);
+        try {
+          getOnBackPressedDispatcher().onBackPressed();
+        } finally {
+          setEnabled(true);
+        }
+      }
+    });
+    Log.i(TAG, "onCreate: BackBridge registered");
   }
 
   private int hideSystemBars() {
