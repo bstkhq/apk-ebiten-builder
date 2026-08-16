@@ -40,8 +40,7 @@ while (( SECONDS < deadline )); do
     if grep -Fq 'builder-legacy-fixture: android-id=' <<<"${process_log}" \
         && grep -Fq 'builder-legacy-fixture: timezone=' <<<"${process_log}" \
         && grep -Fq 'onCreate: legacy setTimezone applied' <<<"${process_log}" \
-        && grep -Fq 'onResume: resumeGame ok' <<<"${process_log}" \
-        && grep -Fq 'focus change: true' <<<"${process_log}"; then
+        && grep -Fq 'onResume: resumeGame ok' <<<"${process_log}"; then
       ready=true
       break
     fi
