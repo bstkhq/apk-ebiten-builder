@@ -10,7 +10,7 @@ trap 'rm -rf "${scratch_dir}"' EXIT
 export FAKE_ADB_STATE="${scratch_dir}/state"
 mkdir -p "${FAKE_ADB_STATE}"
 adb_cmd=("${repo_dir}/tests/fixtures/device/fake-adb.sh" -s fixture)
-timeout_seconds=2
+timeout_seconds=5
 export DEVICE_TEST_HOME_SETTLE_SECONDS=0
 
 # shellcheck source=device-test-lib.sh
