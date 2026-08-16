@@ -5,10 +5,74 @@ local temporary copy of the selected document. It is independent from the
 runtime and Back bridges and needs no storage permission or application Java
 code.
 
-The complete local gomobile adapter and Go result-handler setup are in the
-[README](../../README.md#optional-android-file-picker). It uses
-`bridge.FilePickerClient` to retain the current opener and application result
-handler.
+## Go setup
+
+Put this in the `package mobile` passed to `ebitenmobile bind`:
+
+```go
+package mobile
+
+import (
+	"log"
+	"os"
+
+	"github.com/bstkhq/apk-ebiten-builder/bridge"
+)
+
+var picker = bridge.NewFilePickerClient()
+
+// FilePickerHandler must remain local so gomobile emits it for SetHandler.
+type FilePickerHandler interface {
+	bridge.FilePickerHandler
+}
+
+type FilePickerBridge interface {
+	bridge.FilePickerOpener
+
+	// This parameter must use the local handler type for gomobile.
+	SetHandler(FilePickerHandler)
+}
+
+func RegisterFilePickerBridge(value FilePickerBridge) {
+	picker.Register(value)
+	value.SetHandler(picker)
+}
+
+func init() {
+	picker.SetResultHandler(bridge.FilePickerHandlerFunc(handlePickerResult))
+}
+
+func chooseDocument() {
+	if !picker.Open("application/pdf") {
+		// Android has not registered a picker yet; keep or retry the user action.
+		return
+	}
+}
+
+func handlePickerResult(path, message string) {
+	if message != "" {
+		log.Printf("document picker failed: %s", message)
+		return
+	}
+	if path == "" {
+		// The user cancelled the picker.
+		return
+	}
+	defer os.Remove(path)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Printf("read picked document: %v", err)
+		return
+	}
+	// Validate or import data here.
+	_ = data
+}
+```
+
+`FilePickerClient` retains the current opener and application result handler.
+The local `FilePickerHandler` and `FilePickerBridge` are required only for
+gomobile; their canonical method sets live in `bridge`.
 
 ## Opening a document
 

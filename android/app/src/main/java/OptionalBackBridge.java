@@ -14,9 +14,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * application types into the reusable Android template.
  *
  * <p>The canonical Go methods are documented in
- * {@code github.com/bstkhq/apk-ebiten-builder/bridge}. See the project
- * README's Android Back bridge section for the required local gomobile adapter
- * and a Go example.</p>
+ * {@code github.com/bstkhq/apk-ebiten-builder/bridge}. See
+ * {@code docs/bridges/back.md} for the required local gomobile adapter and a
+ * Go example.</p>
  *
  * <p>Applications without that complete export retain the Activity's existing
  * Back behavior. A named but incompatible export is a contract error.</p>

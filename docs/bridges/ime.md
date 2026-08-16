@@ -4,9 +4,48 @@ The IME bridge controls Android's software keyboard and exposes the current
 composing text to an Ebiten application. `bridge.IMEClient` retains the desired
 keyboard state while Android creates or recreates its Activity.
 
-The complete local gomobile adapter and Go input loop are in the
-[README](../../README.md#android-ime-lifecycle). They use the canonical
-`bridge.IMEBridge` contract without copying its three methods.
+## Go setup
+
+Put this in the `package mobile` passed to `ebitenmobile bind`. Merge the
+example `Update` method into the game's existing input loop:
+
+```go
+package mobile
+
+import (
+	"github.com/bstkhq/apk-ebiten-builder/bridge"
+	"github.com/hajimehoshi/ebiten/v2"
+)
+
+var ime = bridge.NewIMEClient()
+
+type IMEBridge interface {
+	bridge.IMEBridge
+}
+
+func RegisterIMEBridge(value IMEBridge) {
+	ime.Register(value)
+}
+
+func focusNameField() {
+	ime.Show(bridge.IMEText, bridge.IMEActionDone)
+}
+
+func closeField() {
+	ime.Hide()
+}
+
+func (g *game) Update() error {
+	g.composing = ime.Composing() // Draw this preedit text; do not save it.
+	for _, char := range ebiten.AppendInputChars(nil) {
+		g.name += string(char) // This is committed text.
+	}
+	return nil
+}
+```
+
+The local `IMEBridge` is required only for gomobile; its canonical method set
+lives in `bridge`.
 
 ## Focus, show and hide
 

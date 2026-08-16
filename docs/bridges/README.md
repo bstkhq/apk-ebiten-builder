@@ -1,16 +1,15 @@
 # Android bridge guides
 
 `apk-ebiten-builder` can expose four independent Android bridges to the Go
-package bound by `ebitenmobile`. Each guide explains the runtime behavior,
-lifecycle and a representative user-facing flow. The complete Go adapters are
-kept in the root [README](../../README.md), so there is one copy to maintain.
+package bound by `ebitenmobile`. Each guide contains the complete Go adapter,
+runtime behavior, lifecycle rules and a representative user-facing example.
 
-| Bridge | Use it for | Guide | Go adapter |
-| --- | --- | --- | --- |
-| Runtime | Device, application, storage, network and safe process-restart services | [Runtime bridge](runtime.md) | [README](../../README.md#android-runtime-bridge) |
-| Back | Let Go consume or delegate Android Back events | [Back bridge](back.md) | [README](../../README.md#android-back-bridge) |
-| File picker | Ask Android to choose a document and receive a local temporary copy | [File picker](file-picker.md) | [README](../../README.md#optional-android-file-picker) |
-| IME | Show and hide the software keyboard, and read composing text | [IME](ime.md) | [README](../../README.md#android-ime-lifecycle) |
+| Bridge | Use it for | Guide |
+| --- | --- | --- |
+| Runtime | Device, application, storage, network and safe process-restart services | [Runtime bridge](runtime.md) |
+| Back | Let Go consume or delegate Android Back events | [Back bridge](back.md) |
+| File picker | Ask Android to choose a document and receive a local temporary copy | [File picker](file-picker.md) |
+| IME | Show and hide the software keyboard, and read composing text | [IME](ime.md) |
 
 All bridges are optional. An application only exports the local gomobile
 adapter for the bridge it uses. Local interfaces are intentional: gomobile

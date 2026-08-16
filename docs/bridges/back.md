@@ -4,10 +4,39 @@ The Back bridge lets Go decide whether one Android Back event has been handled.
 It is independent from the runtime bridge: an application may use either,
 both, or neither.
 
-The complete local gomobile adapter and Go handler setup are in the
-[README](../../README.md#android-back-bridge). It uses `bridge.BackClient` so
-the application stores its handler once while Android may recreate the
-Activity.
+## Go setup
+
+Put this in the `package mobile` passed to `ebitenmobile bind`:
+
+```go
+package mobile
+
+import "github.com/bstkhq/apk-ebiten-builder/bridge"
+
+var back = bridge.NewBackClient()
+
+// BackHandler must remain local so gomobile emits it for SetHandler.
+type BackHandler interface {
+	bridge.BackHandler
+}
+
+type BackBridge interface {
+	// This parameter must use the local BackHandler so gomobile emits it.
+	SetHandler(BackHandler)
+}
+
+func RegisterBackBridge(value BackBridge) {
+	value.SetHandler(back)
+}
+
+func setScreenBackHandler(handle func() bool) {
+	back.SetHandler(bridge.BackHandlerFunc(handle))
+}
+```
+
+`BackClient` stores the application handler once while Android may recreate
+the Activity. The local `BackHandler` and `BackBridge` are required only for
+gomobile; their canonical method sets live in `bridge`.
 
 ## Dispatch contract
 
