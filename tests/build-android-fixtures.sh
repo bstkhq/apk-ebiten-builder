@@ -37,6 +37,7 @@ build_fixture() {
   local version="$2"
   local cleartext="$3"
   local back_invoked="$4"
+  local allow_backup="$5"
   local root_dir="${build_parent}/${fixture}"
   local app_id="games.example.builder.${fixture}"
 
@@ -55,6 +56,7 @@ build_fixture() {
     VERSION="${version}" \
     USES_CLEARTEXT_TRAFFIC="${cleartext}" \
     ENABLE_ON_BACK_INVOKED_CALLBACK="${back_invoked}" \
+    ALLOW_BACKUP="${allow_backup}" \
     NO_COLOR=1
 
   local android_dir="${root_dir}/.build/android"
@@ -189,6 +191,7 @@ build_fixture() {
     <<<"${manifest}"
   grep -Fq 'android:exported="false"' <<<"${manifest}"
   grep -Fq 'android:process=":restart"' <<<"${manifest}"
+  grep -Fq "android:allowBackup=\"${allow_backup}\"" <<<"${manifest}"
   if [[ "${cleartext}" == true ]]; then
     grep -Fq 'android:usesCleartextTraffic="true"' <<<"${manifest}"
   elif grep -Fq 'android:usesCleartextTraffic=' <<<"${manifest}"; then
@@ -218,7 +221,7 @@ build_fixture() {
   echo "build-android-fixtures: ${fixture} (${android_target}) passed"
 }
 
-build_fixture legacy v1.0.1 "" ""
-build_fixture bridge v1.0.2 true ""
-build_fixture back v1.0.3 "" true
-build_fixture picker v1.0.4 "" ""
+build_fixture legacy v1.0.1 "" "" true
+build_fixture bridge v1.0.2 true "" false
+build_fixture back v1.0.3 "" true true
+build_fixture picker v1.0.4 "" "" true
