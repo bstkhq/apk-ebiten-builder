@@ -5,14 +5,13 @@ import (
 	"image/color"
 	"sync"
 
+	"github.com/bstkhq/apk-ebiten-builder/bridge"
 	"github.com/hajimehoshi/ebiten/v2"
 	ebitenmobile "github.com/hajimehoshi/ebiten/v2/mobile"
 )
 
 type IMEBridge interface {
-	Show(inputType, imeOptions int32)
-	Composing() string
-	Hide()
+	bridge.IMEBridge
 }
 
 var (

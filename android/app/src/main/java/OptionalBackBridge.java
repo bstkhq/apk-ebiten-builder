@@ -13,10 +13,15 @@ import java.util.concurrent.atomic.AtomicReference;
  * Adapts an optional gomobile {@code BackBridge} without linking generated
  * application types into the reusable Android template.
  *
- * <p>The Go contract is:</p>
+ * <p>The canonical Go methods are documented in
+ * {@code github.com/bstkhq/apk-ebiten-builder/bridge}. Gomobile emits only
+ * types declared by the application's {@code mobile} package, so its local
+ * adapter is:</p>
  *
  * <pre>{@code
- * type BackHandler interface { OnBack() bool }
+ * import "github.com/bstkhq/apk-ebiten-builder/bridge"
+ *
+ * type BackHandler interface { bridge.BackHandler }
  * type BackBridge interface { SetHandler(BackHandler) }
  * func RegisterBackBridge(BackBridge)
  * }</pre>

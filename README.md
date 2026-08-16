@@ -178,6 +178,13 @@ the template you clone:
 go get github.com/bstkhq/apk-ebiten-builder/bridge@<release-tag>
 ```
 
+The [`bridge`](bridge) package is the canonical Go API: it documents every
+runtime, IME, Back and file-picker method. Gomobile still requires callback
+types to be declared locally in `package mobile`; the adapters below embed the
+canonical types instead of copying their methods. A callback-taking method must
+retain a local parameter type, because gomobile generates that callback type
+from `package mobile` too.
+
 Then put this adapter in the `package mobile` passed to `ebitenmobile bind`:
 
 ```go
@@ -297,8 +304,8 @@ signed Android ID retains its historical high-bit mask for compatibility.
 
 The runtime bridge needs no dangerous permission. It intentionally excludes
 SSID, hardware serial, MAC address, public IP and location because those need
-permissions, privileged access, or an external service. It does not change the
-existing IME integration; Back has its own optional bridge below.
+permissions, privileged access, or an external service. IME, Back and the
+picker remain independent optional bridges below.
 
 For an HTTP-only Control endpoint, set `USES_CLEARTEXT_TRAFFIC=true`. The
 option is strict: only empty, `true`, or `false` is accepted, and the default
@@ -308,15 +315,19 @@ leaves Android's manifest policy untouched.
 ## Android Back bridge
 
 Back dispatch is an independent optional contract because Android calls into
-Go, while `AndroidBridge` exposes services that Go calls. Applications opt in
-with these gomobile-compatible interfaces:
+Go, while `AndroidBridge` exposes services that Go calls. Applications use the
+documented `bridge.BackHandler` contract and retain only the local type that
+gomobile must export:
 
 ```go
+import "github.com/bstkhq/apk-ebiten-builder/bridge"
+
 type BackHandler interface {
-	OnBack() bool
+	bridge.BackHandler
 }
 
 type BackBridge interface {
+	// This parameter must use the local BackHandler so gomobile emits it.
 	SetHandler(BackHandler)
 }
 
@@ -330,6 +341,9 @@ func RegisterBackBridge(bridge BackBridge) {
 `nil` to `SetHandler` restores the default. Android can recreate the Activity,
 so `RegisterBackBridge` must replace the stored bridge and install the current
 handler each time, just like `RegisterAndroidBridge` and `RegisterIMEBridge`.
+`bridge.BackBridge` is the canonical documented shape; the one local
+`SetHandler` declaration is necessary because its parameter is another
+gomobile-generated interface.
 
 Legacy applications that do not export the complete contract are unchanged.
 The adapter deduplicates a physical Back key that also reaches AndroidX's
@@ -346,13 +360,17 @@ only empty, `true` and `false` are accepted.
 An application can independently opt in to Android's system document picker:
 
 ```go
+import "github.com/bstkhq/apk-ebiten-builder/bridge"
+
 type FilePickerHandler interface {
-	OnResult(path, message string)
+	bridge.FilePickerHandler
 }
 
 type FilePickerBridge interface {
+	bridge.FilePickerOpener
+
+	// This parameter must use the local handler type for gomobile.
 	SetHandler(FilePickerHandler)
-	Open(mimeType string)
 }
 
 type filePickerHandler struct{}
@@ -368,7 +386,8 @@ func RegisterFilePickerBridge(bridge FilePickerBridge) {
 ```
 
 `Open` launches `ACTION_OPEN_DOCUMENT`; an empty MIME type selects `*/*`.
-Android copies the chosen document into the application's
+`bridge.FilePickerOpener` supplies that method without duplicating it in the
+local adapter. Android copies the chosen document into the application's
 `cacheDir/picked-files` directory before calling `OnResult`. A successful result
 has a non-empty local `path`, cancellation returns two empty strings, and an
 error has an empty path and a non-empty `message`.
@@ -381,14 +400,14 @@ it is no longer needed. Calling `SetHandler(nil)` stops result delivery.
 
 ## Android IME lifecycle
 
-The existing `IMEBridge` API is unchanged. In particular, an application may
+The `bridge.IMEBridge` contract documents keyboard control. An application may
 request the keyboard synchronously from `RegisterIMEBridge`:
 
 ```go
+import "github.com/bstkhq/apk-ebiten-builder/bridge"
+
 type IMEBridge interface {
-	Show(inputType, imeOptions int32)
-	Composing() string
-	Hide()
+	bridge.IMEBridge
 }
 
 func RegisterIMEBridge(bridge IMEBridge) {
@@ -419,11 +438,12 @@ make test-device   # build gate + runtime, restart, Back, picker and IME checks
 ```
 
 The Android build gate compiles legacy, the `bridge`-package AndroidBridge
-example, independent Back, independent file-picker and early-IME packages. It
-inspects the actual gomobile Java signatures, runs Debug and Release lint,
-verifies APK signatures, and checks 16 KiB ZIP and native ELF alignment. It
-defaults to amd64 plus arm64; override `ANDROID_TARGET` when a narrower fixture
-is required.
+example, and independent Back, file-picker and early-IME packages. Those
+fixtures embed the canonical callback contracts and inspect the actual gomobile
+Java signatures. The gate also runs Debug and Release lint, verifies APK
+signatures, and checks 16 KiB ZIP and native ELF alignment. It defaults to
+amd64 plus arm64; override `ANDROID_TARGET` when a narrower fixture is
+required.
 
 The builder supplies the linker flags required by NDK r26 for 16 KiB-aligned
 native libraries, independently of any values injected through `GO_LDFLAGS`.

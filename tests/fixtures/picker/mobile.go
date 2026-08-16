@@ -6,28 +6,26 @@ import (
 	"os"
 	"sync"
 
+	"github.com/bstkhq/apk-ebiten-builder/bridge"
 	"github.com/hajimehoshi/ebiten/v2"
 	ebitenmobile "github.com/hajimehoshi/ebiten/v2/mobile"
 )
 
 type IMEBridge interface {
-	Show(inputType, imeOptions int32)
-	Composing() string
-	Hide()
+	bridge.IMEBridge
 }
 
 func RegisterIMEBridge(IMEBridge) {}
 
-// FilePickerHandler receives the asynchronous result of a picker request.
+// FilePickerHandler remains local so gomobile emits it in package mobile.
 type FilePickerHandler interface {
-	OnResult(path, message string)
+	bridge.FilePickerHandler
 }
 
-// FilePickerBridge is implemented by the APK builder when this optional
-// contract is present.
+// FilePickerBridge uses the local handler type required by gomobile.
 type FilePickerBridge interface {
+	bridge.FilePickerOpener
 	SetHandler(FilePickerHandler)
-	Open(mimeType string)
 }
 
 var filePicker FilePickerBridge
