@@ -46,7 +46,7 @@ while (( SECONDS < deadline )); do
   pid="$("${adb_cmd[@]}" shell pidof "${package}" 2>/dev/null | tr -d '\r' || true)"
   if [[ -n "${pid}" ]]; then
     process_log="$("${adb_cmd[@]}" logcat -d --pid="${pid}" -t 2000 GoLog:V '*:S' || true)"
-    if grep -Fq 'builder-ime-fixture: requesting-ime-during-registration' <<<"${process_log}" \
+    if grep -Fq 'builder-ime-fixture: auto-focusing-text-field' <<<"${process_log}" \
         && grep -Fq 'IMEBridge.show(0x1, 0x6)' <<<"${process_log}" \
         && grep -Fq 'new input connection' <<<"${process_log}" \
         && grep -Fq 'showIme: requested through window insets' <<<"${process_log}" \
@@ -116,4 +116,4 @@ if grep -Fq 'onCreate: fatal error' <<<"${process_log}"; then
   exit 1
 fi
 
-echo "verify-ime-device: early show, text input and Go-requested hide passed in PID ${pid}"
+echo "verify-ime-device: autofocus, text input and Go-requested hide passed in PID ${pid}"

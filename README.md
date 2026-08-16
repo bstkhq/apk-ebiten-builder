@@ -400,26 +400,58 @@ it is no longer needed. Calling `SetHandler(nil)` stops result delivery.
 
 ## Android IME lifecycle
 
-The `bridge.IMEBridge` contract documents keyboard control. An application may
-request the keyboard synchronously from `RegisterIMEBridge`:
+Use `bridge.IMEClient` to retain the desired keyboard state while Android
+creates or recreates its Activity. The local interface remains necessary only
+so gomobile generates the Java-facing type:
 
 ```go
-import "github.com/bstkhq/apk-ebiten-builder/bridge"
+import (
+	"github.com/bstkhq/apk-ebiten-builder/bridge"
+	"github.com/hajimehoshi/ebiten/v2"
+)
+
+var ime = bridge.NewIMEClient()
 
 type IMEBridge interface {
 	bridge.IMEBridge
 }
 
-func RegisterIMEBridge(bridge IMEBridge) {
-	bridge.Show(1, 6) // TYPE_CLASS_TEXT, IME_ACTION_DONE
+func RegisterIMEBridge(value IMEBridge) {
+	ime.Register(value)
+}
+
+func focusNameField() {
+	ime.Show(bridge.IMEText, bridge.IMEActionDone)
+}
+
+func closeField() {
+	ime.Hide()
+}
+
+func (g *game) Update() error {
+	g.composing = ime.Composing() // draw this preedit text; do not save it.
+	for _, char := range ebiten.AppendInputChars(nil) {
+		g.name += string(char) // committed text
+	}
+	return nil
 }
 ```
 
-An early `Show` is retained until the Ebiten surface has both view and window
-focus. The surface identifies itself as a text editor only while an explicit
-IME request is active, so merely focusing a legacy game cannot open the
-keyboard. A newer `Show`, `Hide`, or Activity destruction invalidates older
-posted requests; this prevents a stale callback from reopening the keyboard.
+`IMEText`, `IMENumber`, and `IMEActionDone` are named versions of common
+Android flags. `Show` accepts other Android `InputType` and
+`EditorInfo` flags when needed. Calling it before `RegisterIMEBridge` is
+safe: `IMEClient` replays the latest request when Android supplies a bridge
+and after Activity recreation. `Hide` clears that saved request, so the
+keyboard does not reopen later.
+
+`ebiten.AppendInputChars` supplies committed input and belongs in the field
+value. `Composing` is only the current IME preedit text and should be drawn
+without appending it, otherwise composition-capable keyboards duplicate text.
+
+The surface identifies itself as a text editor only while an explicit IME
+request is active, so merely focusing a legacy game cannot open the keyboard.
+A newer `Show`, `Hide`, or Activity destruction invalidates older posted
+requests; this prevents a stale callback from reopening the keyboard.
 
 Once focused, Android receives a fresh `InputConnection` and the request uses
 the window-insets controller, with a posted `showSoftInput` fallback for an
@@ -438,7 +470,7 @@ make test-device   # build gate + runtime, restart, Back, picker and IME checks
 ```
 
 The Android build gate compiles legacy, the `bridge`-package AndroidBridge
-example, and independent Back, file-picker and early-IME packages. Those
+example, and independent Back, file-picker and IME lifecycle packages. Those
 fixtures embed the canonical callback contracts and inspect the actual gomobile
 Java signatures. The gate also runs Debug and Release lint, verifies APK
 signatures, and checks 16 KiB ZIP and native ELF alignment. It defaults to
