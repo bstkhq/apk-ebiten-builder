@@ -116,6 +116,7 @@ Defined in `Include.mk`. Override from your `Makefile` or on the command line.
 | `GO_LDFLAGS`         | *(empty)*                   | `-ldflags` passed to `ebitenmobile bind`. Useful for injecting variables.|
 | `VERSION`            | `v1.0.0`                    | `versionName`. `VERSION_CODE` is derived automatically.                  |
 | `SCREEN_ORIENTATION` | `fullSensor`                | Value for `android:screenOrientation`.                                   |
+| `ALLOW_BACKUP`       | `true`                      | Strict `true`/`false` value for the manifest `android:allowBackup` policy. |
 | `USES_CLEARTEXT_TRAFFIC` | *(empty)*               | Optional `true`/`false` manifest override. Empty preserves Android's default. |
 | `ENABLE_ON_BACK_INVOKED_CALLBACK` | *(empty)*       | Optional `true`/`false` predictive-Back manifest override. |
 | `ANDROID_SDK_ROOT`   | *(required)*                | SDK root. Populated by `Dependencies.mk`.                                |
@@ -196,6 +197,13 @@ Persistent configuration that must not be backed up can resolve
 `NoBackupFilesDir`, check its error, and then use
 `filepath.Join(directory, "config.json")`. The builder does not impose a
 filename or data format.
+
+`ALLOW_BACKUP=false` sets the application-level Android backup policy and
+disables cloud backup. Device-to-device transfer behavior on Android 12 and
+later can still vary by manufacturer, so data that must never be transferred
+belongs in `NoBackupFilesDir`. The default remains `true`, matching the
+builder's existing manifest exactly. The value is strict; empty and
+non-boolean values fail generation instead of producing a malformed manifest.
 
 `RestartApp` replaces only the application process. A private helper process
 links to a Binder owned by the old process before terminating it and launches
@@ -340,7 +348,7 @@ When `DEBUG=0` (default), Gradle output is captured to `.build/android/.make-gra
 2. Replaces every `@@VAR@@` with the value of the matching variable (`APP_NAME`, `APP_ID`, `VERSION`, …).
 3. Relocates any `.java`/`.kt` whose `package` declaration matches `APP_ID` into `app/src/main/java/<APP_ID as path>/`.
 
-Substitutable variables: `APP_NAME`, `APP_ID`, `GO_PKG`, `JAVA_PKG`, `MAIN_ACTIVITY`, `ANDROID_SDK_ROOT`, `VERSION`, `VERSION_CODE`, `SCREEN_ORIENTATION`, `LOG_TAG`.
+Substitutable variables: `APP_NAME`, `APP_ID`, `GO_PKG`, `JAVA_PKG`, `MAIN_ACTIVITY`, `ANDROID_SDK_ROOT`, `VERSION`, `VERSION_CODE`, `SCREEN_ORIENTATION`, `ALLOW_BACKUP`, `LOG_TAG`.
 
 `JAVA_PKG` defaults to `$(APP_ID).corelib` and is the `-javapkg` passed to `ebitenmobile bind`.
 
