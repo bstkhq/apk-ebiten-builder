@@ -317,8 +317,7 @@ The Android build gate compiles legacy, AndroidBridge-only, independent
 BackBridge and independent file-picker packages, inspects the actual gomobile
 Java signatures, runs Debug and Release lint, verifies APK signatures, and
 checks 16 KiB ZIP and native ELF alignment. It defaults to amd64 plus arm64;
-override
-`ANDROID_TARGET` when a narrower fixture is required.
+override `ANDROID_TARGET` when a narrower fixture is required.
 
 The device scripts accept `ADB_SERIAL=<serial>` and
 `DEVICE_TIMEOUT_SECONDS=<seconds>`. They install only the private fixture

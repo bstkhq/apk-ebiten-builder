@@ -12,59 +12,38 @@ document_path="/sdcard/Download/${document_name}"
 window_dump="/sdcard/bstk-apk-builder-picker-window-$$.xml"
 document_payload="builder-picker-fixture-payload-v1"
 
-if [[ ! "${timeout_seconds}" =~ ^[1-9][0-9]*$ ]]; then
-  echo "DEVICE_TIMEOUT_SECONDS must be a positive integer" >&2
-  exit 2
-fi
-
 adb_cmd=("${adb_bin}")
 if [[ -n "${serial}" ]]; then
   adb_cmd+=( -s "${serial}" )
 fi
 
+# shellcheck source=device-test-lib.sh
+source "${repo_dir}/tests/device-test-lib.sh"
+
 test -s "${apk}"
 [[ "${document_name}" =~ ^bstk-apk-builder-picker-probe-[0-9]+\.txt$ ]]
 [[ "${window_dump}" =~ ^/sdcard/bstk-apk-builder-picker-window-[0-9]+\.xml$ ]]
 
-original_go_log_tag="$("${adb_cmd[@]}" shell getprop log.tag.GoLog | tr -d '\r')"
-original_stay_awake="$("${adb_cmd[@]}" shell settings get global stay_on_while_plugged_in | tr -d '\r')"
-
-restore_go_log_tag() {
-  if [[ -n "${original_go_log_tag}" ]]; then
-    "${adb_cmd[@]}" shell setprop log.tag.GoLog "${original_go_log_tag}" >/dev/null
-  else
-    "${adb_cmd[@]}" shell 'setprop log.tag.GoLog ""' >/dev/null
-  fi
-}
-
 cleanup() {
-  "${adb_cmd[@]}" shell am force-stop "${package}" >/dev/null 2>&1 || true
   "${adb_cmd[@]}" shell rm -f "${document_path}" >/dev/null 2>&1 || true
   "${adb_cmd[@]}" shell am broadcast \
     -a android.intent.action.MEDIA_SCANNER_SCAN_FILE \
     -d "file://${document_path}" >/dev/null 2>&1 || true
   "${adb_cmd[@]}" shell rm -f "${window_dump}" >/dev/null 2>&1 || true
-  "${adb_cmd[@]}" shell settings put global stay_on_while_plugged_in \
-    "${original_stay_awake}" >/dev/null 2>&1 || true
-  restore_go_log_tag >/dev/null 2>&1 || true
+  device_test_session_cleanup "${package}"
 }
 trap cleanup EXIT
 
-"${adb_cmd[@]}" shell setprop log.tag.GoLog V >/dev/null
-"${adb_cmd[@]}" shell settings put global stay_on_while_plugged_in 7 >/dev/null
-"${adb_cmd[@]}" shell input keyevent WAKEUP >/dev/null
-"${adb_cmd[@]}" shell wm dismiss-keyguard >/dev/null 2>&1 || true
-"${adb_cmd[@]}" shell input keyevent HOME >/dev/null
-sleep 1
-
+device_test_session_begin
 "${adb_cmd[@]}" install -r "${apk}" >/dev/null
 "${adb_cmd[@]}" shell pm clear "${package}" >/dev/null
+"${adb_cmd[@]}" logcat -c
 "${adb_cmd[@]}" shell mkdir -p /sdcard/Download
 "${adb_cmd[@]}" shell "printf '%s\\n' '${document_payload}' > '${document_path}'"
 "${adb_cmd[@]}" shell am broadcast \
   -a android.intent.action.MEDIA_SCANNER_SCAN_FILE \
   -d "file://${document_path}" >/dev/null
-"${adb_cmd[@]}" shell am start -W -n "${package}/.MainActivity" >/dev/null
+device_test_launch_activity "${package}/.MainActivity"
 
 pid=""
 document_bounds=""
@@ -143,9 +122,7 @@ test "${cancellation_ready}" = true
 test "$(grep -Fc 'builder-picker-fixture: selection-ok' <<<"${process_log}")" -eq 1
 test "$(grep -Fc 'builder-picker-fixture: cancellation-ok' <<<"${process_log}")" -eq 1
 test "$("${adb_cmd[@]}" shell pidof "${package}" | tr -d '\r')" = "${pid}"
-"${adb_cmd[@]}" shell dumpsys activity activities \
-  | grep -m 1 'topResumedActivity' \
-  | grep -Fq "${package}/.MainActivity"
+device_test_wait_for_top_activity "${package}/.MainActivity"
 if "${adb_cmd[@]}" shell run-as "${package}" ls cache/picked-files 2>/dev/null \
     | grep -q .; then
   echo "picker fixture left an application-owned cache file behind" >&2
