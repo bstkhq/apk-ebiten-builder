@@ -28,6 +28,10 @@ public class MainActivity extends AppCompatActivity {
   private boolean backKeyInProgress;
   private boolean backKeyConsumed;
   private OptionalFilePickerBridge.Registration filePickerRegistration;
+  private int imeRequestGeneration;
+  private boolean imeShowPending;
+  private int pendingImeInputType;
+  private int pendingImeOptions;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -114,6 +118,9 @@ public class MainActivity extends AppCompatActivity {
   public void onWindowFocusChanged(boolean hasFocus) {
     super.onWindowFocusChanged(hasFocus);
     Log.i(TAG, "focus change: " + Boolean.toString(hasFocus));
+    if (hasFocus && imeShowPending) {
+      requestPendingIme();
+    }
   }
 
   @Override
@@ -167,6 +174,8 @@ public class MainActivity extends AppCompatActivity {
       filePickerRegistration.close();
       filePickerRegistration = null;
     }
+    imeRequestGeneration++;
+    imeShowPending = false;
     super.onDestroy();
   }
 
@@ -260,18 +269,74 @@ public class MainActivity extends AppCompatActivity {
       Log.e(TAG, "showIme: view is null");
       return;
     }
-    
+
+    view.prepareShowIME(inputType, imeOptions, keyboardCompatibility());
+    imeRequestGeneration++;
+    imeShowPending = true;
+    pendingImeInputType = inputType;
+    pendingImeOptions = imeOptions;
+
+    if (!view.requestFocus()) {
+      Log.e(TAG, "showIme: view refused focus");
+      return;
+    }
+
+    requestPendingIme();
+  }
+
+  private void requestPendingIme() {
+    if (!imeShowPending) {
+      return;
+    }
+
+    EbitenExtendedView view = getEbitenView();
+    if (view == null) {
+      Log.e(TAG, "showIme: view is null while request is pending");
+      return;
+    }
+
+    final int generation = imeRequestGeneration;
+    view.post(() -> showImeWhenReady(view, generation));
+  }
+
+  private void showImeWhenReady(EbitenExtendedView view, int generation) {
+    if (!imeShowPending || generation != imeRequestGeneration) {
+      return;
+    }
+
+    if (!view.hasWindowFocus() || !view.isFocused()) {
+      // A request made while the Activity is starting remains valid. Wait for
+      // Android to connect and serve the window instead of issuing a request
+      // the framework will reject as "not served".
+      Log.i(TAG, "showIme: waiting for focused window");
+      return;
+    }
+
     InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
     if (imm == null) {
       Log.e(TAG, "showIme: InputMethodManager is null");
       return;
     }
 
-    view.prepareShowIME(inputType, imeOptions, keyboardCompatibility());
-    view.requestFocus();
+    imeShowPending = false;
+    // Reapply the latest values in case Android created an older connection
+    // while this request was waiting for window focus.
+    view.prepareShowIME(pendingImeInputType, pendingImeOptions, keyboardCompatibility());
     imm.restartInput(view);
-    imm.showSoftInput(view, 0);
-    Log.i(TAG, "showIme: requested");
+
+    WindowInsetsControllerCompat insetsController = WindowCompat.getInsetsController(
+        getWindow(), view);
+    if (insetsController == null) {
+      view.post(() -> {
+        if (generation == imeRequestGeneration) {
+          imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
+        }
+      });
+      Log.i(TAG, "showIme: requested through posted fallback");
+      return;
+    }
+    insetsController.show(WindowInsetsCompat.Type.ime());
+    Log.i(TAG, "showIme: requested through window insets");
   }
 
   // returns "default", "samsung", "raw"
@@ -299,7 +364,8 @@ public class MainActivity extends AppCompatActivity {
       Log.e(TAG, "hideIme: failed to find EbitenExtendedView");
       return;
     }
-    
+    imeRequestGeneration++;
+    imeShowPending = false;
     view.prepareHideIME();
     InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
     if (imm != null) {

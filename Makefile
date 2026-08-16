@@ -14,3 +14,4 @@ test-device: test-android
 	./tests/verify-bridge-device.sh
 	./tests/verify-back-device.sh
 	./tests/verify-picker-device.sh
+	./tests/verify-ime-device.sh

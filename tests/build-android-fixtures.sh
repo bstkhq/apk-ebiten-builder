@@ -86,19 +86,19 @@ build_fixture() {
       "${app_id}.corelib.mobile.Mobile"
   )"
   case "${fixture}" in
-    legacy)
+    legacy|ime)
       grep -Fq 'public static native void setAndroidID(long);' <<<"${mobile_signature}"
       grep -Fq 'public static native void setTimezone(java.lang.String);' <<<"${mobile_signature}"
       if grep -Fq 'registerAndroidBridge' <<<"${mobile_signature}"; then
-        echo "legacy fixture unexpectedly exports AndroidBridge" >&2
+        echo "${fixture} fixture unexpectedly exports AndroidBridge" >&2
         exit 1
       fi
       if grep -Fq 'registerBackBridge' <<<"${mobile_signature}"; then
-        echo "legacy fixture unexpectedly exports BackBridge" >&2
+        echo "${fixture} fixture unexpectedly exports BackBridge" >&2
         exit 1
       fi
       if grep -Fq 'registerFilePickerBridge' <<<"${mobile_signature}"; then
-        echo "legacy fixture unexpectedly exports FilePickerBridge" >&2
+        echo "${fixture} fixture unexpectedly exports FilePickerBridge" >&2
         exit 1
       fi
       ;;
@@ -185,6 +185,19 @@ build_fixture() {
       ;;
   esac
 
+  if [[ "${fixture}" == ime ]]; then
+    grep -Fq 'registerIMEBridge' <<<"${mobile_signature}"
+    local ime_signature
+    ime_signature="$(
+      javap -public -classpath "${inspect_dir}/classes.jar" \
+        "${app_id}.corelib.mobile.IMEBridge"
+    )"
+    test "$(grep -Ec '^  public abstract ' <<<"${ime_signature}")" -eq 3
+    grep -Fq 'public abstract void show(int, int);' <<<"${ime_signature}"
+    grep -Fq 'public abstract java.lang.String composing();' <<<"${ime_signature}"
+    grep -Fq 'public abstract void hide();' <<<"${ime_signature}"
+  fi
+
   local manifest
   manifest="$("${android_sdk_root}/cmdline-tools/latest/bin/apkanalyzer" manifest print "${apk}")"
   test "$("${android_sdk_root}/cmdline-tools/latest/bin/apkanalyzer" manifest version-code "${apk}")" \
@@ -198,7 +211,7 @@ build_fixture() {
   if [[ "${cleartext}" == true ]]; then
     grep -Fq 'android:usesCleartextTraffic="true"' <<<"${manifest}"
   elif grep -Fq 'android:usesCleartextTraffic=' <<<"${manifest}"; then
-    echo "legacy APK unexpectedly overrides Android cleartext policy" >&2
+    echo "${fixture} APK unexpectedly overrides Android cleartext policy" >&2
     exit 1
   fi
   if [[ "${back_invoked}" == true ]]; then
@@ -228,3 +241,4 @@ build_fixture legacy v0.8.9 "" "" true 80900
 build_fixture bridge v1.0.2 true "" false 1000200
 build_fixture back v1.0.3 "" true true 1000300
 build_fixture picker v1.0.4 "" "" true 1000400
+build_fixture ime v1.0.5 "" "" true 1000500

@@ -29,6 +29,14 @@ class EbitenExtendedView extends EbitenView {
     super.onErrorOnGameUpdate(e);
   }
 
+  // A focused custom View is eligible for an InputConnection only when it
+  // identifies itself as a text editor. Keep that state tied to an explicit
+  // IME request so legacy games do not acquire editor behavior on focus.
+  @Override
+  public boolean onCheckIsTextEditor() {
+    return this.currentInputType >= 0;
+  }
+
   @Override
   public android.view.inputmethod.InputConnection onCreateInputConnection(android.view.inputmethod.EditorInfo outAttrs) {
     final int TEXT_CLASS = android.text.InputType.TYPE_CLASS_TEXT;
