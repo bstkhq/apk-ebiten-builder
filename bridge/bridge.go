@@ -1,10 +1,11 @@
-// Package bridge defines the Go-side contract for the optional Android
-// runtime bridge supplied by apk-ebiten-builder.
+// Package bridge defines the Go-side contracts for optional Android runtime
+// services and callbacks supplied by apk-ebiten-builder.
 //
-// A gomobile application must still expose RegisterAndroidBridge from its
-// package mobile so that the generated Java binding has an entry point. This
-// package owns the long contract and the lifecycle-safe registration state, so
-// applications do not need to duplicate either of them.
+// A gomobile application must still expose locally named interfaces and
+// registration functions from its package mobile so the generated Java binding
+// has entry points. This package owns the canonical method sets and
+// lifecycle-safe client state, so applications do not need to duplicate either
+// of them.
 package bridge
 
 import (

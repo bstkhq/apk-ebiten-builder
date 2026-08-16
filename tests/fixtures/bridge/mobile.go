@@ -17,9 +17,7 @@ import (
 )
 
 type IMEBridge interface {
-	Show(inputType, imeOptions int32)
-	Composing() string
-	Hide()
+	bridge.IMEBridge
 }
 
 func RegisterIMEBridge(IMEBridge) {}

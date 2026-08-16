@@ -3,33 +3,20 @@ package mobile
 import (
 	"fmt"
 	"image/color"
-	"sync"
 
+	"github.com/bstkhq/apk-ebiten-builder/bridge"
 	"github.com/hajimehoshi/ebiten/v2"
 	ebitenmobile "github.com/hajimehoshi/ebiten/v2/mobile"
 )
 
 type IMEBridge interface {
-	Show(inputType, imeOptions int32)
-	Composing() string
-	Hide()
+	bridge.IMEBridge
 }
 
-var (
-	imeMu     sync.Mutex
-	imeBridge IMEBridge
-)
+var ime = bridge.NewIMEClient()
 
-func RegisterIMEBridge(bridge IMEBridge) {
-	imeMu.Lock()
-	imeBridge = bridge
-	imeMu.Unlock()
-
-	// Deliberately request the IME synchronously during Activity.onCreate. This
-	// is the lifecycle edge that used to lose showSoftInput before the Ebiten
-	// surface had window focus.
-	fmt.Println("builder-ime-fixture: requesting-ime-during-registration")
-	bridge.Show(1, 6) // TYPE_CLASS_TEXT, IME_ACTION_DONE
+func RegisterIMEBridge(value IMEBridge) {
+	ime.Register(value)
 }
 
 func SetAndroidID(id int64) {
@@ -41,6 +28,10 @@ func SetTimezone(value string) {
 }
 
 func init() {
+	// This models an application whose initial text field has autofocus. The
+	// IMEClient retains this request until Android registers its bridge.
+	fmt.Println("builder-ime-fixture: auto-focusing-text-field")
+	ime.Show(bridge.IMEText, bridge.IMEActionDone)
 	ebitenmobile.SetGame(&imeFixtureGame{})
 }
 
@@ -62,16 +53,9 @@ func (g *imeFixtureGame) Update() error {
 	}
 	g.hideStarted = true
 
-	imeMu.Lock()
-	bridge := imeBridge
-	imeMu.Unlock()
-	if bridge == nil {
-		return fmt.Errorf("IMEBridge was not registered")
-	}
-
-	fmt.Printf("builder-ime-fixture: composing=%q\n", bridge.Composing())
+	fmt.Printf("builder-ime-fixture: composing=%q\n", ime.Composing())
 	fmt.Println("builder-ime-fixture: requesting-hide")
-	bridge.Hide()
+	ime.Hide()
 	return nil
 }
 

@@ -21,15 +21,9 @@ Inspired by the practices from `github.com/programatta/demoandroid` (the "do it 
 - [Installing dependencies](#installing-dependencies)
 - [Usage from your project](#usage-from-your-project)
 - [Configuration variables](#configuration-variables)
-  - [VERSION_CODE derived from VERSION](#version_code-derived-from-version)
   - [Injecting variables into Go (ldflags)](#injecting-variables-into-go-ldflags)
-- [Android runtime bridge](#android-runtime-bridge)
-- [Android Back bridge](#android-back-bridge)
-- [Optional Android file picker](#optional-android-file-picker)
-- [Android IME lifecycle](#android-ime-lifecycle)
-- [Automated tests](#automated-tests)
+- [Android bridges](#android-bridges)
 - [Include.mk targets](#includemk-targets)
-- [How template substitution works](#how-template-substitution-works)
 - [Signed release builds](#signed-release-builds)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
@@ -43,13 +37,6 @@ Inspired by the practices from `github.com/programatta/demoandroid` (the "do it 
 - An Ebiten project with a `package mobile` that `ebitenmobile bind` can target.
 
 Everything else (Android SDK, NDK, CMake, `ebitenmobile`) is installed by this repo.
-On Debian/Ubuntu, the host-side Go test gate additionally needs Ebiten's native
-development packages:
-
-```bash
-sudo apt-get install libc6-dev libasound2-dev libgl1-mesa-dev libx11-dev \
-  libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxxf86vm-dev pkg-config
-```
 
 ## Installing dependencies
 
@@ -142,19 +129,7 @@ Defined in `Include.mk`. Override from your `Makefile` or on the command line.
 | `DEBUG`              | `0`                         | `1` shows full Gradle output.                                            |
 | `NO_COLOR`           | *(empty)*                   | `1` disables colored log prefixes.                                       |
 
-<a id="version_code-derived-from-version"></a>
-### `VERSION_CODE` derived from `VERSION`
-
-Extracts the first 4 integers found in `VERSION` and packs them:
-
-```
-VERSION_CODE = major * 1_000_000 + minor * 10_000 + patch * 100 + extra
-```
-
-Example: `v2.3.1` → `2030100`. Missing numbers default to `0`.
-The generated value is emitted from decimal arithmetic rather than as a
-zero-padded literal. This matters for versions such as `v0.8.9`: Gradle sees
-`80900`, never an octal-looking `0080900`.
+See the [versioning guide](docs/versioning.md) for `VERSION_CODE` derivation.
 
 <a id="injecting-variables-into-go-ldflags"></a>
 ### Injecting variables into Go (ldflags)
@@ -168,283 +143,30 @@ Use the same variable in the consuming application's `Makefile`; leave it
 empty when no compile-time configuration is needed.
 
 
-## Android runtime bridge
+## Android bridges
 
-An application can opt in to Android runtime services without copying the
-long gomobile interface. Add the builder module at the same release version as
-the template you clone:
+The optional [`bridge`](bridge) package connects a Go `package mobile` to
+selected Android services. Add it at the same release version as the Android
+template:
 
 ```bash
 go get github.com/bstkhq/apk-ebiten-builder/bridge@<release-tag>
 ```
 
-Then put this adapter in the `package mobile` passed to `ebitenmobile bind`:
+Every bridge is independent and opt-in. Gomobile requires its Java-facing
+interfaces to be declared locally in `package mobile`; the guides contain the
+small local adapters, complete Go examples and lifecycle details.
 
-```go
-package mobile
+| Bridge | Purpose | Guide |
+| --- | --- | --- |
+| Runtime | Device, app, storage and network services; safe process restart | [Runtime bridge](docs/bridges/runtime.md) |
+| Back | Let Go consume or delegate Android Back | [Back bridge](docs/bridges/back.md) |
+| File picker | Select a document and receive a local temporary copy | [File picker](docs/bridges/file-picker.md) |
+| IME | Control the keyboard and read composing text | [IME bridge](docs/bridges/ime.md) |
 
-import (
-	"context"
-	"log"
-	"time"
-	_ "time/tzdata"
-
-	"github.com/bstkhq/apk-ebiten-builder/bridge"
-)
-
-var androidRuntime = bridge.NewClient()
-
-// It must be a local named interface so gomobile exports it in Mobile.java.
-// The complete 21-method contract remains owned by bridge.
-type AndroidBridge interface {
-	bridge.AndroidBridge
-}
-
-// This is the only required gomobile-facing adapter.
-func RegisterAndroidBridge(value AndroidBridge) {
-	androidRuntime.Register(value)
-}
-
-func init() {
-	go readAndroidRuntime()
-}
-
-func readAndroidRuntime() {
-	runtime, err := androidRuntime.Wait(context.Background())
-	if err != nil {
-		log.Printf("Android runtime unavailable: %v", err)
-		return
-	}
-
-	androidID, err := runtime.AndroidID()
-	if err != nil {
-		log.Printf("Android ID unavailable: %v", err)
-		return
-	}
-	if androidID == "" {
-		log.Printf("Android returned an empty ID")
-		return
-	}
-	timeZone, err := runtime.TimeZone()
-	if err != nil {
-		log.Printf("time zone unavailable: %v", err)
-		return
-	}
-	location, err := time.LoadLocation(timeZone)
-	if err != nil {
-		log.Printf("invalid Android time zone %q: %v", timeZone, err)
-		return
-	}
-	time.Local = location
-
-	log.Printf("Android ready: model=%s sdk=%d", runtime.Model(), runtime.SDKInt())
-	// Start the game or use androidID here.
-}
-```
-
-This pattern lets an application wait until the activity supplies Android
-identity and locale data, then start with those values. The complete,
-executable reference is the
-[`bridge` fixture](tests/fixtures/bridge/mobile.go), which additionally reads
-every service and exercises activity recreation.
-
-`ebitenmobile` only exposes API declared in the package it binds. Therefore
-the local embedded `AndroidBridge` and `RegisterAndroidBridge` are intentional:
-passing `bridge.AndroidBridge` directly makes gomobile omit the export. The
-embedding keeps the Java-facing type local while avoiding a copied contract.
-
-`Client.Register` is safe to call repeatedly and replaces the old bridge when
-Android recreates `MainActivity`. `Wait` blocks until the first registration or
-context cancellation; `Current` returns the latest registered bridge for code
-that is already running. Do not retain a returned bridge indefinitely if the
-application must survive activity recreation—call `Current` again when the
-value is needed.
-
-The registration is discovered reflectively, so applications that do not
-export it still build. If an export with that name has an incompatible
-signature, startup fails with an explicit contract error instead of silently
-falling back.
-
-`AndroidID` is the complete hexadecimal Android ID as a string. This avoids
-the sign loss that would occur through gomobile's signed `int64` binding.
-`BatteryLevel` is in the range `0..1`. `Locales`, `NetworkTransports`, and
-`LocalIPAddresses` are ordered comma-separated strings; locales use BCP 47
-tags. Network values can be empty while the device is offline.
-
-The three directory methods expose canonical app-private Android locations.
-Persistent configuration that must not be backed up can resolve
-`NoBackupFilesDir`, check its error, and then use
-`filepath.Join(directory, "config.json")`. The builder does not impose a
-filename or data format.
-
-`ALLOW_BACKUP=false` sets the application-level Android backup policy and
-disables cloud backup. Device-to-device transfer behavior on Android 12 and
-later can still vary by manufacturer, so data that must never be transferred
-belongs in `NoBackupFilesDir`. The default remains `true`, matching the
-builder's existing manifest exactly. The value is strict; empty and
-non-boolean values fail generation instead of producing a malformed manifest.
-
-`RestartApp` replaces only the application process. A private helper process
-links to a Binder owned by the old process before terminating it and launches
-the successor only after Binder confirms death. A timeout is fail-closed: it
-does not launch an overlapping successor. It never restarts Android or the
-device, and a nil error means that Android accepted the restart request—not
-that the successor is already ready.
-
-Legacy applications continue to receive `SetAndroidID(int64)` and, when
-present, `SetTimezone(string)`. Both exports are deprecated for new code; the
-signed Android ID retains its historical high-bit mask for compatibility.
-
-The runtime bridge needs no dangerous permission. It intentionally excludes
-SSID, hardware serial, MAC address, public IP and location because those need
-permissions, privileged access, or an external service. It does not change the
-existing IME integration; Back has its own optional bridge below.
-
-For an HTTP-only Control endpoint, set `USES_CLEARTEXT_TRAFFIC=true`. The
-option is strict: only empty, `true`, or `false` is accepted, and the default
-leaves Android's manifest policy untouched.
-
-
-## Android Back bridge
-
-Back dispatch is an independent optional contract because Android calls into
-Go, while `AndroidBridge` exposes services that Go calls. Applications opt in
-with these gomobile-compatible interfaces:
-
-```go
-type BackHandler interface {
-	OnBack() bool
-}
-
-type BackBridge interface {
-	SetHandler(BackHandler)
-}
-
-func RegisterBackBridge(bridge BackBridge) {
-	bridge.SetHandler(applicationBackHandler{})
-}
-```
-
-`OnBack` runs on Android's UI thread. It returns `true` to consume the event or
-`false` to continue through the Activity's existing default behavior. Passing
-`nil` to `SetHandler` restores the default. Android can recreate the Activity,
-so `RegisterBackBridge` must replace the stored bridge and install the current
-handler each time, just like `RegisterAndroidBridge` and `RegisterIMEBridge`.
-
-Legacy applications that do not export the complete contract are unchanged.
-The adapter deduplicates a physical Back key that also reaches AndroidX's
-dispatcher, so Go observes one semantic event. Named exports with partial,
-extra or incompatible methods fail explicitly.
-
-Set `ENABLE_ON_BACK_INVOKED_CALLBACK=true` only when the application wants the
-Android 13+ predictive-Back dispatcher. Empty preserves the existing manifest;
-only empty, `true` and `false` are accepted.
-
-
-## Optional Android file picker
-
-An application can independently opt in to Android's system document picker:
-
-```go
-type FilePickerHandler interface {
-	OnResult(path, message string)
-}
-
-type FilePickerBridge interface {
-	SetHandler(FilePickerHandler)
-	Open(mimeType string)
-}
-
-type filePickerHandler struct{}
-
-func (filePickerHandler) OnResult(path, message string) {
-	// Open path, report message, and delete path when it is no longer needed.
-}
-
-func RegisterFilePickerBridge(bridge FilePickerBridge) {
-	// Store or replace the bridge because Android can recreate MainActivity.
-	bridge.SetHandler(filePickerHandler{})
-}
-```
-
-`Open` launches `ACTION_OPEN_DOCUMENT`; an empty MIME type selects `*/*`.
-Android copies the chosen document into the application's
-`cacheDir/picked-files` directory before calling `OnResult`. A successful result
-has a non-empty local `path`, cancellation returns two empty strings, and an
-error has an empty path and a non-empty `message`.
-
-The picker is absent unless the complete interface is exported, does not
-change `AndroidBridge`, and requires no storage permission or application Java
-code. The application owns every returned cache file and should delete it when
-it is no longer needed. Calling `SetHandler(nil)` stops result delivery.
-
-
-## Android IME lifecycle
-
-The existing `IMEBridge` API is unchanged. In particular, an application may
-request the keyboard synchronously from `RegisterIMEBridge`:
-
-```go
-type IMEBridge interface {
-	Show(inputType, imeOptions int32)
-	Composing() string
-	Hide()
-}
-
-func RegisterIMEBridge(bridge IMEBridge) {
-	bridge.Show(1, 6) // TYPE_CLASS_TEXT, IME_ACTION_DONE
-}
-```
-
-An early `Show` is retained until the Ebiten surface has both view and window
-focus. The surface identifies itself as a text editor only while an explicit
-IME request is active, so merely focusing a legacy game cannot open the
-keyboard. A newer `Show`, `Hide`, or Activity destruction invalidates older
-posted requests; this prevents a stale callback from reopening the keyboard.
-
-Once focused, Android receives a fresh `InputConnection` and the request uses
-the window-insets controller, with a posted `showSoftInput` fallback for an
-AndroidX implementation that cannot supply a controller. `Hide` retains its
-existing API and cancels any pending show before dismissing the keyboard.
-
-
-## Automated tests
-
-The repository includes three progressively broader gates:
-
-```bash
-make test          # Java/Go contracts, templates and device-helper tests
-make test-android  # gates above + all fixture APKs and Android lint
-make test-device   # build gate + runtime, restart, Back, picker and IME checks
-```
-
-The Android build gate compiles legacy, the `bridge`-package AndroidBridge
-example, independent Back, independent file-picker and early-IME packages. It
-inspects the actual gomobile Java signatures, runs Debug and Release lint,
-verifies APK signatures, and checks 16 KiB ZIP and native ELF alignment. It
-defaults to amd64 plus arm64; override `ANDROID_TARGET` when a narrower fixture
-is required.
-
-The builder supplies the linker flags required by NDK r26 for 16 KiB-aligned
-native libraries, independently of any values injected through `GO_LDFLAGS`.
-
-GitHub Actions runs `make test-android` for every pull request and every push
-to `main`. It installs Android tooling through `Dependencies.mk`, pins
-`ebitenmobile` to the fixture's Ebitengine version, and caches the SDK based on
-that installer configuration. The device gate remains manual because it
-requires a connected Android device.
-
-The device scripts accept `ADB_SERIAL=<serial>` and
-`DEVICE_TIMEOUT_SECONDS=<seconds>`. They install only the private fixture
-packages under `games.example.builder.*` and force-stop those fixtures on
-exit. Before changing the tablet, the shared device harness records its
-`GoLog` level and keep-awake setting. It wakes and unlocks the display, waits
-for the launcher transition to settle, requires a stable top-resumed Activity,
-and restores the recorded settings even when a gate fails. The helper itself
-is covered with a fake ADB transport, including the unset-setting case.
-The IME gate requests the keyboard during Activity creation, sends text through
-the focused surface, then verifies that Go can hide it again; the Back gate
-independently verifies consumed and delegated events.
+Applications that do not export an optional bridge retain their existing
+behavior. Legacy runtime exports remain supported; new integrations should use
+the documented `bridge` clients.
 
 
 <a id="includemk-targets"></a>
@@ -454,7 +176,7 @@ independently verifies consumed and delegated events.
 | ----------- | -------------------------------------------------------------------- |
 | `all`       | `clean` + `build` + `install`                                        |
 | `info`      | Prints the resolved configuration (paths, versions, etc.).           |
-| `generate`  | Copies `android/` to `.build/android/` and substitutes placeholders. |
+| `generate`  | Copies `android/` to `.build/android/` and substitutes placeholders; see [template generation](docs/template-generation.md). |
 | `compile`   | Runs `ebitenmobile bind` and produces `app/libs/game.aar`.           |
 | `build`     | `generate` + `compile` + `gradlew assembleDebug`.                    |
 | `install`   | `gradlew installDebug` + launches the activity via `adb am start`.   |
@@ -465,49 +187,10 @@ independently verifies consumed and delegated events.
 When `DEBUG=0` (default), Gradle output is captured to `.build/android/.make-gradle.log` and only shown (last 200 lines) if the build fails.
 
 
-## How template substitution works
-
-`generate` rsyncs `android/` → `.build/android/`, then:
-
-1. Finds `*.gradle`, `*.xml`, `*.java`, `*.kt`, `*.properties`, `*.toml`, `*.md`, etc.
-2. Replaces every `@@VAR@@` with the value of the matching variable (`APP_NAME`, `APP_ID`, `VERSION`, …).
-3. Relocates any `.java`/`.kt` whose `package` declaration matches `APP_ID` into `app/src/main/java/<APP_ID as path>/`.
-
-Substitutable variables: `APP_NAME`, `APP_ID`, `GO_PKG`, `JAVA_PKG`, `MAIN_ACTIVITY`, `ANDROID_SDK_ROOT`, `VERSION`, `VERSION_CODE`, `SCREEN_ORIENTATION`, `ALLOW_BACKUP`, `LOG_TAG`.
-
-`JAVA_PKG` defaults to `$(APP_ID).corelib` and is the `-javapkg` passed to `ebitenmobile bind`.
-
-
 ## Signed release builds
 
-`Include.mk` only produces debug APKs. For a signed release, add a target like this to your project's `Makefile`:
-
-```make
-KEYSTORE_PATH ?= $(ROOT_DIR)/release.keystore
-KEYSTORE_PASS ?=
-KEY_ALIAS ?=
-KEY_PASS ?= $(KEYSTORE_PASS)
-
-APK_RELEASE := $(ANDROID_DIR)/app/build/outputs/apk/release/app-release.apk
-
-release: generate compile
-	$(Q)test -f "$(KEYSTORE_PATH)" || { echo "Keystore not found"; exit 1; }
-	$(Q)test -n "$(KEYSTORE_PASS)" || { echo "KEYSTORE_PASS empty"; exit 1; }
-	$(Q)test -n "$(KEY_ALIAS)"     || { echo "KEY_ALIAS empty"; exit 1; }
-	$(call GRADLE_RUN,assembleRelease \
-		-Pandroid.injected.signing.store.file=$(KEYSTORE_PATH) \
-		-Pandroid.injected.signing.store.password=$(KEYSTORE_PASS) \
-		-Pandroid.injected.signing.key.alias=$(KEY_ALIAS) \
-		-Pandroid.injected.signing.key.password=$(KEY_PASS))
-
-.PHONY: release
-```
-
-Usage:
-
-```bash
-make release KEYSTORE_PASS='***' KEY_ALIAS=upload KEY_PASS='***'
-```
+`Include.mk` produces debug APKs. See the
+[signed release guide](docs/releasing.md) for the release target and usage.
 
 
 ## Troubleshooting

@@ -12,16 +12,10 @@ import java.util.List;
  * Adapts an optional gomobile file picker contract without linking generated
  * application types into the reusable Android template.
  *
- * <p>The Go contract is:</p>
- *
- * <pre>{@code
- * type FilePickerHandler interface { OnResult(path, message string) }
- * type FilePickerBridge interface {
- *     SetHandler(FilePickerHandler)
- *     Open(mimeType string)
- * }
- * func RegisterFilePickerBridge(FilePickerBridge)
- * }</pre>
+ * <p>The canonical Go methods are documented in
+ * {@code github.com/bstkhq/apk-ebiten-builder/bridge}. See
+ * {@code docs/bridges/file-picker.md} for the required local gomobile adapter
+ * and a Go example.</p>
  *
  * <p>Applications without that export keep their existing behavior. A named
  * but incompatible export is a contract error.</p>

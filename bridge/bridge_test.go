@@ -3,6 +3,7 @@ package bridge
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
@@ -12,6 +13,54 @@ import (
 type fakeBridge struct {
 	AndroidBridge
 	id int
+}
+
+type fakeIMEBridge struct {
+	mu        sync.Mutex
+	shows     []imeRequest
+	hides     int
+	composing string
+}
+
+func (b *fakeIMEBridge) Show(inputType, imeOptions int32) {
+	b.mu.Lock()
+	b.shows = append(b.shows, imeRequest{inputType: inputType, imeOptions: imeOptions})
+	b.mu.Unlock()
+}
+
+func (b *fakeIMEBridge) Composing() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.composing
+}
+
+func (b *fakeIMEBridge) Hide() {
+	b.mu.Lock()
+	b.hides++
+	b.mu.Unlock()
+}
+
+func (b *fakeIMEBridge) calls() ([]imeRequest, int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]imeRequest(nil), b.shows...), b.hides
+}
+
+type fakeFilePickerOpener struct {
+	mu        sync.Mutex
+	mimeTypes []string
+}
+
+func (o *fakeFilePickerOpener) Open(mimeType string) {
+	o.mu.Lock()
+	o.mimeTypes = append(o.mimeTypes, mimeType)
+	o.mu.Unlock()
+}
+
+func (o *fakeFilePickerOpener) calls() []string {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return append([]string(nil), o.mimeTypes...)
 }
 
 func TestClientWaitsForRegistration(t *testing.T) {
@@ -77,5 +126,208 @@ func TestClientWaitHonorsContext(t *testing.T) {
 	_, err := client.Wait(ctx)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("Wait error = %v, want context.Canceled", err)
+	}
+}
+
+func TestIMEClientReplaysLatestShowWhenAndroidRegisters(t *testing.T) {
+	client := NewIMEClient()
+	client.Show(IMEText, IMEActionDone)
+	client.Show(IMENumber, IMEActionDone)
+
+	android := new(fakeIMEBridge)
+	client.Register(android)
+
+	shows, hides := android.calls()
+	if len(shows) != 1 || shows[0] != (imeRequest{inputType: IMENumber, imeOptions: IMEActionDone}) {
+		t.Fatalf("Show calls = %#v, want one number/done request", shows)
+	}
+	if hides != 0 {
+		t.Fatalf("Hide calls = %d, want 0", hides)
+	}
+}
+
+func TestIMEClientReplaysLatestShowAfterActivityRecreation(t *testing.T) {
+	client := NewIMEClient()
+	first := new(fakeIMEBridge)
+	second := new(fakeIMEBridge)
+
+	client.Register(first)
+	client.Show(IMENumber, IMEActionDone)
+	client.Register(second)
+
+	firstShows, firstHides := first.calls()
+	if len(firstShows) != 1 || firstShows[0] != (imeRequest{inputType: IMENumber, imeOptions: IMEActionDone}) {
+		t.Fatalf("first Show calls = %#v, want one number/done request", firstShows)
+	}
+	if firstHides != 0 {
+		t.Fatalf("first Hide calls = %d, want 0", firstHides)
+	}
+	secondShows, secondHides := second.calls()
+	if len(secondShows) != 1 || secondShows[0] != (imeRequest{inputType: IMENumber, imeOptions: IMEActionDone}) {
+		t.Fatalf("second Show calls = %#v, want replayed number/done request", secondShows)
+	}
+	if secondHides != 0 {
+		t.Fatalf("second Hide calls = %d, want 0", secondHides)
+	}
+}
+
+func TestIMEClientHideCancelsPendingShow(t *testing.T) {
+	var client IMEClient
+	android := new(fakeIMEBridge)
+
+	client.Show(IMEText, IMEActionDone)
+	client.Register(android)
+	client.Hide()
+
+	recreated := new(fakeIMEBridge)
+	client.Register(recreated)
+
+	shows, hides := android.calls()
+	if len(shows) != 1 {
+		t.Fatalf("Show calls = %#v, want one request", shows)
+	}
+	if hides != 1 {
+		t.Fatalf("Hide calls = %d, want 1", hides)
+	}
+	recreatedShows, recreatedHides := recreated.calls()
+	if len(recreatedShows) != 0 || recreatedHides != 0 {
+		t.Fatalf("recreated calls = (%#v, %d), want none", recreatedShows, recreatedHides)
+	}
+}
+
+func TestIMEClientHideWinsOverQueuedShow(t *testing.T) {
+	client := NewIMEClient()
+	android := new(fakeIMEBridge)
+	client.Register(android)
+
+	// Queue both operations behind applyMu so the test covers the race where a
+	// later Hide changes state before an earlier Show reaches Android.
+	client.applyMu.Lock()
+	showDone := make(chan struct{})
+	go func() {
+		client.Show(IMEText, IMEActionDone)
+		close(showDone)
+	}()
+	waitForIMEShowing(t, client, true)
+
+	hideDone := make(chan struct{})
+	go func() {
+		client.Hide()
+		close(hideDone)
+	}()
+	waitForIMEShowing(t, client, false)
+	client.applyMu.Unlock()
+
+	select {
+	case <-showDone:
+	case <-time.After(time.Second):
+		t.Fatal("Show did not complete")
+	}
+	select {
+	case <-hideDone:
+	case <-time.After(time.Second):
+		t.Fatal("Hide did not complete")
+	}
+
+	shows, hides := android.calls()
+	if len(shows) != 0 || hides != 1 {
+		t.Fatalf("calls = (%#v, %d), want no Show and one Hide", shows, hides)
+	}
+}
+
+func TestIMEClientComposingUsesCurrentBridge(t *testing.T) {
+	var client IMEClient
+	if got := client.Composing(); got != "" {
+		t.Fatalf("Composing before Register = %q, want empty", got)
+	}
+
+	first := &fakeIMEBridge{composing: "draft"}
+	second := &fakeIMEBridge{composing: "replacement"}
+	client.Register(first)
+	if got := client.Composing(); got != "draft" {
+		t.Fatalf("Composing = %q, want %q", got, "draft")
+	}
+	client.Register(second)
+	if got := client.Composing(); got != "replacement" {
+		t.Fatalf("Composing after recreation = %q, want %q", got, "replacement")
+	}
+}
+
+func TestBackClientUsesLatestHandler(t *testing.T) {
+	var client BackClient
+	if client.OnBack() {
+		t.Fatal("OnBack without a handler = true, want false")
+	}
+
+	calls := 0
+	client.SetHandler(BackHandlerFunc(func() bool {
+		calls++
+		return calls == 1
+	}))
+	if !client.OnBack() {
+		t.Fatal("first OnBack = false, want true")
+	}
+	if client.OnBack() {
+		t.Fatal("second OnBack = true, want false")
+	}
+	client.SetHandler(nil)
+	if client.OnBack() {
+		t.Fatal("OnBack after clearing handler = true, want false")
+	}
+}
+
+func TestFilePickerClientTracksCurrentOpenerAndHandler(t *testing.T) {
+	var client FilePickerClient
+	if client.Open("text/plain") {
+		t.Fatal("Open before Register = true, want false")
+	}
+
+	var results []string
+	client.SetResultHandler(FilePickerHandlerFunc(func(path, message string) {
+		results = append(results, path+"|"+message)
+	}))
+	client.OnResult("first", "")
+	if got := len(results); got != 1 || results[0] != "first|" {
+		t.Fatalf("results = %#v, want one forwarded result", results)
+	}
+
+	first := new(fakeFilePickerOpener)
+	second := new(fakeFilePickerOpener)
+	client.Register(first)
+	if !client.Open("text/plain") {
+		t.Fatal("Open after first Register = false, want true")
+	}
+	client.Register(second)
+	if !client.Open("application/pdf") {
+		t.Fatal("Open after replacement Register = false, want true")
+	}
+	if got := first.calls(); len(got) != 1 || got[0] != "text/plain" {
+		t.Fatalf("first opener calls = %#v, want text/plain", got)
+	}
+	if got := second.calls(); len(got) != 1 || got[0] != "application/pdf" {
+		t.Fatalf("second opener calls = %#v, want application/pdf", got)
+	}
+
+	client.SetResultHandler(nil)
+	client.OnResult("ignored", "")
+	if got := len(results); got != 1 {
+		t.Fatalf("result count after clear = %d, want 1", got)
+	}
+}
+
+func waitForIMEShowing(t *testing.T, client *IMEClient, want bool) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for {
+		client.mu.RLock()
+		got := client.showing
+		client.mu.RUnlock()
+		if got == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("IMEClient showing = %t, want %t", got, want)
+		}
+		time.Sleep(time.Millisecond)
 	}
 }

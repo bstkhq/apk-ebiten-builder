@@ -5,14 +5,13 @@ import (
 	"image/color"
 	"sync/atomic"
 
+	"github.com/bstkhq/apk-ebiten-builder/bridge"
 	"github.com/hajimehoshi/ebiten/v2"
 	ebitenmobile "github.com/hajimehoshi/ebiten/v2/mobile"
 )
 
 type IMEBridge interface {
-	Show(inputType, imeOptions int32)
-	Composing() string
-	Hide()
+	bridge.IMEBridge
 }
 
 func RegisterIMEBridge(IMEBridge) {}
@@ -28,31 +27,35 @@ func SetTimezone(value string) {
 }
 
 type BackHandler interface {
-	OnBack() bool
+	bridge.BackHandler
 }
 
 type BackBridge interface {
+	// SetHandler uses the local BackHandler so gomobile emits both callback
+	// interfaces in package mobile.
 	SetHandler(BackHandler)
 }
 
-var backCalls atomic.Int32
+var (
+	back      = bridge.NewBackClient()
+	backCalls atomic.Int32
+)
 
-func RegisterBackBridge(bridge BackBridge) {
-	bridge.SetHandler(backHandler{})
+func RegisterBackBridge(value BackBridge) {
+	value.SetHandler(back)
 	fmt.Println("builder-back-fixture: handler-ready")
 }
 
-type backHandler struct{}
+func init() {
+	back.SetHandler(bridge.BackHandlerFunc(handleBack))
+	ebitenmobile.SetGame(backFixtureGame{})
+}
 
-func (backHandler) OnBack() bool {
+func handleBack() bool {
 	call := backCalls.Add(1)
 	consumed := call == 1
 	fmt.Printf("builder-back-fixture: call=%d consumed=%t\n", call, consumed)
 	return consumed
-}
-
-func init() {
-	ebitenmobile.SetGame(backFixtureGame{})
 }
 
 type backFixtureGame struct{}
