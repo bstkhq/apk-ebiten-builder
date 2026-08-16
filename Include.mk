@@ -12,7 +12,19 @@ GO_SRC ?=
 VERSION ?= v1.0.0
 ROOT_DIR ?= $(abspath .)
 SCREEN_ORIENTATION ?= fullSensor
+USES_CLEARTEXT_TRAFFIC ?=
 LOG_TAG = GoLog
+
+USES_CLEARTEXT_TRAFFIC_ATTRIBUTE :=
+ifneq ($(strip $(USES_CLEARTEXT_TRAFFIC)),)
+  ifneq ($(words $(strip $(USES_CLEARTEXT_TRAFFIC))),1)
+    $(error USES_CLEARTEXT_TRAFFIC must be empty, true or false)
+  endif
+  ifneq ($(filter true false,$(strip $(USES_CLEARTEXT_TRAFFIC))),$(strip $(USES_CLEARTEXT_TRAFFIC)))
+    $(error USES_CLEARTEXT_TRAFFIC must be empty, true or false)
+  endif
+  USES_CLEARTEXT_TRAFFIC_ATTRIBUTE := android:usesCleartextTraffic="$(strip $(USES_CLEARTEXT_TRAFFIC))"
+endif
 
 # Optional Go ldflags passed to `ebitenmobile bind` for compile-time injection
 # of variables. Example:
@@ -97,9 +109,10 @@ VERSION_CODE := $(shell bash -lc '\
 
 # Names of placeholders to replace in templates: @@VAR@@
 TEMPLATE_VARS := APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY \
-	ANDROID_SDK_ROOT VERSION VERSION_CODE SCREEN_ORIENTATION LOG_TAG
+	ANDROID_SDK_ROOT VERSION VERSION_CODE SCREEN_ORIENTATION \
+	USES_CLEARTEXT_TRAFFIC_ATTRIBUTE LOG_TAG
 export APP_NAME APP_ID GO_PKG JAVA_PKG MAIN_ACTIVITY ANDROID_SDK_ROOT VERSION \
-	VERSION_CODE SCREEN_ORIENTATION LOG_TAG
+	VERSION_CODE SCREEN_ORIENTATION USES_CLEARTEXT_TRAFFIC_ATTRIBUTE LOG_TAG
 
 # Which files are considered "text templates"
 TEMPLATE_FILE_GLOBS := -name "*.gradle" -o -name "*.properties" \
@@ -151,6 +164,7 @@ info:
 	@echo "    ANDROID_DIR   : $(ANDROID_DIR)"
 	@echo "    VERSION       : $(VERSION)"
 	@echo "    VERSION_CODE  : $(VERSION_CODE)"
+	@echo "    CLEARTEXT     : $(if $(USES_CLEARTEXT_TRAFFIC),$(USES_CLEARTEXT_TRAFFIC),manifest default)"
 	@echo "    AAR           : $(AAR_PATH)"
 	@echo "    APK           : $(APK_DEBUG)"
 	@echo "    DEBUG         : $(DEBUG)"

@@ -20,6 +20,8 @@ Inspired by the practices from `github.com/programatta/demoandroid` (the "do it 
 - [Configuration variables](#configuration-variables)
   - [VERSION_CODE derived from VERSION](#version_code-derived-from-version)
   - [Injecting variables into Go (ldflags)](#injecting-variables-into-go-ldflags)
+- [Android runtime bridge](#android-runtime-bridge)
+- [Automated tests](#automated-tests)
 - [Include.mk targets](#includemk-targets)
 - [How template substitution works](#how-template-substitution-works)
 - [Signed release builds](#signed-release-builds)
@@ -112,6 +114,7 @@ Defined in `Include.mk`. Override from your `Makefile` or on the command line.
 | `GO_LDFLAGS`         | *(empty)*                   | `-ldflags` passed to `ebitenmobile bind`. Useful for injecting variables.|
 | `VERSION`            | `v1.0.0`                    | `versionName`. `VERSION_CODE` is derived automatically.                  |
 | `SCREEN_ORIENTATION` | `fullSensor`                | Value for `android:screenOrientation`.                                   |
+| `USES_CLEARTEXT_TRAFFIC` | *(empty)*               | Optional `true`/`false` manifest override. Empty preserves Android's default. |
 | `ANDROID_SDK_ROOT`   | *(required)*                | SDK root. Populated by `Dependencies.mk`.                                |
 | `DEBUG`              | `0`                         | `1` shows full Gradle output.                                            |
 | `NO_COLOR`           | *(empty)*                   | `1` disables colored log prefixes.                                       |
@@ -136,6 +139,102 @@ export GO_LDFLAGS
 ```
 
 See the sample project `Makefile` (Buzzattack Kiosk) for a complete pattern with an optional `CONTROL_URL`.
+
+
+## Android runtime bridge
+
+An application can opt in to Android runtime services by exporting this Go
+interface and registration function from the package passed to
+`ebitenmobile bind`:
+
+```go
+type AndroidBridge interface {
+	AndroidID() (string, error)
+	Manufacturer() string
+	Model() string
+	PackageName() string
+	VersionName() (string, error)
+	VersionCode() (int64, error)
+	AndroidVersion() string
+	SDKInt() int32
+	TimeZone() (string, error)
+	Locales() (string, error)
+	FilesDir() (string, error)
+	NoBackupFilesDir() (string, error)
+	CacheDir() (string, error)
+	BatteryLevel() (float64, error)
+	BatteryPlugged() (bool, error)
+	Interactive() (bool, error)
+	PowerSaveMode() (bool, error)
+	NetworkTransports() (string, error)
+	NetworkMetered() (bool, error)
+	LocalIPAddresses() (string, error)
+	RestartApp() error
+}
+
+func RegisterAndroidBridge(bridge AndroidBridge) {
+	// Store or replace the current value. Android can recreate MainActivity.
+}
+```
+
+The registration is discovered reflectively, so applications that do not
+export it still build. If an export with that name has an incompatible
+signature, startup fails with an explicit contract error instead of silently
+falling back.
+
+`AndroidID` is the complete hexadecimal Android ID as a string. This avoids
+the sign loss that would occur through gomobile's signed `int64` binding.
+`BatteryLevel` is in the range `0..1`. `Locales`, `NetworkTransports`, and
+`LocalIPAddresses` are ordered comma-separated strings; locales use BCP 47
+tags. Network values can be empty while the device is offline.
+
+The three directory methods expose canonical app-private Android locations.
+Persistent configuration that must not be backed up can resolve
+`NoBackupFilesDir`, check its error, and then use
+`filepath.Join(directory, "config.json")`. The builder does not impose a
+filename or data format.
+
+`RestartApp` replaces only the application process. A private helper process
+links to a Binder owned by the old process before terminating it and launches
+the successor only after Binder confirms death. A timeout is fail-closed: it
+does not launch an overlapping successor. It never restarts Android or the
+device, and a nil error means that Android accepted the restart request—not
+that the successor is already ready.
+
+Legacy applications continue to receive `SetAndroidID(int64)` and, when
+present, `SetTimezone(string)`. Both exports are deprecated for new code; the
+signed Android ID retains its historical high-bit mask for compatibility.
+
+The bridge needs no dangerous runtime permission. It intentionally excludes
+SSID, hardware serial, MAC address, public IP and location because those need
+permissions, privileged access, or an external service. It also does not
+change the existing IME integration or add Back-button behavior.
+
+For an HTTP-only Control endpoint, set `USES_CLEARTEXT_TRAFFIC=true`. The
+option is strict: only empty, `true`, or `false` is accepted, and the default
+leaves Android's manifest policy untouched.
+
+
+## Automated tests
+
+The repository includes three progressively broader gates:
+
+```bash
+make test          # Java reflection contract and generated-template tests
+make test-android  # both gates above + legacy/bridge APKs and Android lint
+make test-device   # both gates above + runtime and safe-restart device checks
+```
+
+The Android build gate compiles both a legacy package and an
+AndroidBridge-only package, inspects the actual gomobile Java signatures,
+runs Debug and Release lint, verifies APK signatures, and checks 16 KiB ZIP
+and native ELF alignment. It defaults to amd64 plus arm64; override
+`ANDROID_TARGET` when a narrower fixture is required.
+
+The device scripts accept `ADB_SERIAL=<serial>` and
+`DEVICE_TIMEOUT_SECONDS=<seconds>`. They install only the private fixture
+packages under `games.example.builder.*` and force-stop those fixtures on
+exit.
 
 
 <a id="includemk-targets"></a>
