@@ -45,7 +45,13 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: tests/fixtures/go.mod
-          cache-dependency-path: tests/fixtures/go.sum
+          # The bridge is a separate local Go module tested by make test.
+          # Include its module definition so cache inputs describe every Go
+          # module exercised by this workflow.
+          cache-dependency-path: |
+            go.mod
+            tests/fixtures/go.mod
+            tests/fixtures/go.sum
 
       - name: Set up JDK
         uses: actions/setup-java@v5

@@ -53,7 +53,7 @@ endif
 GO_LDFLAGS ?=
 
 # Android build target(s) for `ebitenmobile bind`. Default: arm64 only
-# (modern tablets / kiosks). For wider device coverage pass a comma-separated
+# (modern Android devices). For wider device coverage pass a comma-separated
 # list, e.g.:
 #   make build ANDROID_TARGET=android/arm64,android/arm
 # x86/x86_64 are only needed for emulators and bloat the APK ~2x each.
