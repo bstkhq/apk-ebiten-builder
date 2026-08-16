@@ -3,6 +3,7 @@
 test:
 	./tests/run-java-tests.sh
 	./tests/run-go-tests.sh
+	./tests/run-dependencies-tests.sh
 	./tests/run-template-tests.sh
 	./tests/run-device-lib-tests.sh
 

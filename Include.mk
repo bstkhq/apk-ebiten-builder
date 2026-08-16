@@ -59,8 +59,13 @@ GO_LDFLAGS ?=
 # x86/x86_64 are only needed for emulators and bloat the APK ~2x each.
 ANDROID_TARGET ?= android/arm64
 
-# Strip symbol table and DWARF (-s -w) always; user GO_LDFLAGS appended on top.
-GO_BUILD_LDFLAGS := -s -w $(GO_LDFLAGS)
+# Android NDK r27 and older need these linker flags so native libraries run on
+# 16 KiB-page devices. Keep this separate from user-provided GO_LDFLAGS.
+ANDROID_16K_LDFLAGS := -extldflags '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'
+
+# Strip symbol table and DWARF (-s -w) always; append mandatory Android and
+# user-provided linker flags.
+GO_BUILD_LDFLAGS := -s -w $(ANDROID_16K_LDFLAGS) $(GO_LDFLAGS)
 
 
 # Logging / verbosity

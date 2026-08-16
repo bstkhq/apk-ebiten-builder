@@ -41,6 +41,13 @@ Inspired by the practices from `github.com/programatta/demoandroid` (the "do it 
 - An Ebiten project with a `package mobile` that `ebitenmobile bind` can target.
 
 Everything else (Android SDK, NDK, CMake, `ebitenmobile`) is installed by this repo.
+On Debian/Ubuntu, the host-side Go test gate additionally needs Ebiten's native
+development packages:
+
+```bash
+sudo apt-get install libc6-dev libasound2-dev libgl1-mesa-dev libx11-dev \
+  libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxxf86vm-dev pkg-config
+```
 
 ## Installing dependencies
 
@@ -54,7 +61,15 @@ This installs:
 - Android `cmdline-tools` + `platform-tools`
 - `platforms;android-35`, `build-tools;35.0.0`
 - NDK `26.3.11579264`, CMake `3.22.1`
-- `ebitenmobile` via `go install`
+- `ebitenmobile` via `go install`, pinned to `v2.9.9` by default
+
+Set `EBITENMOBILE_VERSION` to the Ebitengine version used by your application.
+For example, from the application's Go module:
+
+```bash
+make -f /path/to/apk-ebiten-builder/Dependencies.mk install_dependencies \
+  EBITENMOBILE_VERSION="$(go list -m -f '{{.Version}}' github.com/hajimehoshi/ebiten/v2)"
+```
 
 When it finishes, add the following to your `.bashrc` / `.zshrc`:
 
@@ -321,8 +336,14 @@ Java signatures, runs Debug and Release lint, verifies APK signatures, and
 checks 16 KiB ZIP and native ELF alignment. It defaults to amd64 plus arm64;
 override `ANDROID_TARGET` when a narrower fixture is required.
 
-GitHub Actions runs `make test-android` for every push and pull request. The
-device gate remains manual because it requires a connected Android device.
+The builder supplies the linker flags required by NDK r26 for 16 KiB-aligned
+native libraries, independently of any values injected through `GO_LDFLAGS`.
+
+GitHub Actions runs `make test-android` for every pull request and every push
+to `main`. It installs Android tooling through `Dependencies.mk`, pins
+`ebitenmobile` to the fixture's Ebitengine version, and caches the SDK based on
+that installer configuration. The device gate remains manual because it
+requires a connected Android device.
 
 The device scripts accept `ADB_SERIAL=<serial>` and
 `DEVICE_TIMEOUT_SECONDS=<seconds>`. They install only the private fixture

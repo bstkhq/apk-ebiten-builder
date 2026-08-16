@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
 
@@ -58,49 +60,36 @@ jobs:
             android/gradle/libs.versions.toml
             android/gradle/wrapper/gradle-wrapper.properties
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+      - name: Restore Android SDK cache
+        uses: actions/cache@v4
         with:
-          packages: >-
-            platform-tools
-            platforms;android-35
-            build-tools;35.0.0
-            ndk;26.3.11579264
-            cmake;3.22.1
+          path: ~/Android/Sdk
+          key: android-sdk-${{ runner.os }}-${{ hashFiles('Dependencies.mk') }}
 
-      # The package's dependency installer uses cmdline-tools/latest, while
-      # setup-android keeps command-line tools under their versioned directory.
-      - name: Expose Android command-line tools at the expected path
+      - name: Install project dependencies
         shell: bash
         run: |
           set -euo pipefail
-          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:?ANDROID_HOME is not set}}"
-          expected_dir="${ANDROID_SDK_ROOT}/cmdline-tools/latest"
-
-          if [[ ! -x "${expected_dir}/bin/apkanalyzer" ]]; then
-            if [[ -e "${expected_dir}" || -L "${expected_dir}" ]]; then
-              echo "${expected_dir} exists but does not contain apkanalyzer" >&2
-              exit 1
-            fi
-
-            tools_dir="$(dirname "$(dirname "$(command -v sdkmanager)")")"
-            test -x "${tools_dir}/bin/apkanalyzer"
-            ln -s "${tools_dir}" "${expected_dir}"
-          fi
-
-      - name: Install ebitenmobile
-        working-directory: tests/fixtures
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-          ebiten_version="$(go list -m -f '{{.Version}}' github.com/hajimehoshi/ebiten/v2)"
-          go install "github.com/hajimehoshi/ebiten/v2/cmd/ebitenmobile@${ebiten_version}"
+          android_sdk_root="${HOME}/Android/Sdk"
+          ebitenmobile_version="$(cd tests/fixtures && go list -m -f '{{.Version}}' github.com/hajimehoshi/ebiten/v2)"
+          make --no-print-directory -f Dependencies.mk install_dependencies \
+            ANDROID_SDK_ROOT="${android_sdk_root}" \
+            EBITENMOBILE_VERSION="${ebitenmobile_version}" \
+            NO_COLOR=1
+          {
+            echo "ANDROID_SDK_ROOT=${android_sdk_root}"
+            echo "ANDROID_HOME=${android_sdk_root}"
+          } >> "$GITHUB_ENV"
+          {
+            echo "${android_sdk_root}/cmdline-tools/latest/bin"
+            echo "${android_sdk_root}/platform-tools"
+            echo "$(go env GOPATH)/bin"
+          } >> "$GITHUB_PATH"
 
       - name: Run test suite
         shell: bash
         run: |
           set -euo pipefail
-          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:?ANDROID_HOME is not set}}"
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:?ANDROID_SDK_ROOT is not set}"
           export ANDROID_HOME="${ANDROID_SDK_ROOT}"
           make test-android

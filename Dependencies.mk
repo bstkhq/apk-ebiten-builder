@@ -1,6 +1,6 @@
 # Android + Ebitenmobile dependencies installer (no package manager; installs into $HOME/Android/Sdk)
 # - Installs Android SDK cmdline-tools + platform-tools + platforms;android-35 + build-tools;35.0.0 + NDK + CMake
-# - Installs ebitenmobile via `go install`
+# - Installs a pinned, configurable ebitenmobile version via `go install`
 #
 # Targets:
 #   install_dependencies   -> everything (SDK + packages + ebitenmobile)
@@ -31,8 +31,11 @@ BUILD_TOOLS ?= 35.0.0
 NDK_VER ?= 26.3.11579264
 CMAKE_VER ?= 3.22.1
 
-# ebitenmobile install target
-EBITENMOBILE_MOD ?= github.com/hajimehoshi/ebiten/v2/cmd/ebitenmobile@latest
+# ebitenmobile install target. Keep a reproducible default and override this
+# version to match the Ebitengine dependency used by the application.
+EBITENMOBILE_VERSION ?= v2.9.9
+# Advanced callers can override the complete module specification instead.
+EBITENMOBILE_MOD ?= github.com/hajimehoshi/ebiten/v2/cmd/ebitenmobile@$(EBITENMOBILE_VERSION)
 
 # Derived
 SDKMANAGER := $(ANDROID_SDK_ROOT)/cmdline-tools/latest/bin/sdkmanager
@@ -69,19 +72,25 @@ install_android_sdk:
 	@mkdir -p "$(ANDROID_SDK_ROOT)/cmdline-tools"
 	@mkdir -p "$(HOME)/.android" && touch "$(HOME)/.android/repositories.cfg"
 
-	$(call LOG,Download Android command-line tools)
-	@tmp="$$(mktemp -d)"; \
-		curl -L -o "$$tmp/cmdline-tools.zip" "$(CMDLINE_TOOLS_ZIP)"; \
-		unzip -q "$$tmp/cmdline-tools.zip" -d "$(ANDROID_SDK_ROOT)/cmdline-tools"; \
-		rm -rf "$(ANDROID_SDK_ROOT)/cmdline-tools/latest"; \
-		mv "$(ANDROID_SDK_ROOT)/cmdline-tools/cmdline-tools" "$(ANDROID_SDK_ROOT)/cmdline-tools/latest"; \
-		rm -rf "$$tmp"
+	@set -euo pipefail; \
+		if test -x "$(SDKMANAGER)"; then \
+			echo "Android command-line tools already installed"; \
+		else \
+			tmp="$$(mktemp -d "$(ANDROID_SDK_ROOT)/.cmdline-tools.XXXXXX")"; \
+			trap 'rm -rf "$$tmp"' EXIT; \
+			curl --fail --location --retry 3 --output "$$tmp/cmdline-tools.zip" "$(CMDLINE_TOOLS_ZIP)"; \
+			unzip -q "$$tmp/cmdline-tools.zip" -d "$$tmp"; \
+			test -d "$$tmp/cmdline-tools"; \
+			rm -rf "$(ANDROID_SDK_ROOT)/cmdline-tools/latest"; \
+			mv "$$tmp/cmdline-tools" "$(ANDROID_SDK_ROOT)/cmdline-tools/latest"; \
+			test -x "$(SDKMANAGER)"; \
+		fi
 
 install_android_packages:
 	$(call LOG,Accept Android SDK licenses)
 	@$(SDKMANAGER_ENV) bash -lc 'yes | "$(SDKMANAGER)" --licenses'
 
-	$(call LOG,Install SDK packages: platform-tools, android-$(COMPILE_SDK), build-tools $(BUILD_TOOLS), NDK $(NDK_VER), CMake $(CMAKE_VER))
+	$(call LOG,Install SDK packages: platform-tools android-$(COMPILE_SDK) build-tools=$(BUILD_TOOLS) NDK=$(NDK_VER) CMake=$(CMAKE_VER))
 	@$(SDKMANAGER_ENV) bash -lc '"$(SDKMANAGER)" \
 		"platform-tools" \
 		"platforms;android-$(COMPILE_SDK)" \
