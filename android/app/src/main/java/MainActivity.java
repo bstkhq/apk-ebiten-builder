@@ -27,6 +27,7 @@ public class MainActivity extends AppCompatActivity {
   private OptionalBackBridge.Registration backRegistration;
   private boolean backKeyInProgress;
   private boolean backKeyConsumed;
+  private OptionalFilePickerBridge.Registration filePickerRegistration;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
         }
       }
       registerOptionalBackBridge();
+      registerOptionalFilePicker();
 
       setContentView(R.layout.activity_main);
       Log.i(TAG, "onCreate: setContentView ok");
@@ -161,6 +163,10 @@ public class MainActivity extends AppCompatActivity {
   @Override
   protected void onDestroy() {
     Log.i(TAG, "onDestroy");
+    if (filePickerRegistration != null) {
+      filePickerRegistration.close();
+      filePickerRegistration = null;
+    }
     super.onDestroy();
   }
 
@@ -226,6 +232,17 @@ public class MainActivity extends AppCompatActivity {
       }
     });
     Log.i(TAG, "onCreate: BackBridge registered");
+  }
+
+  private void registerOptionalFilePicker() {
+    filePickerRegistration = OptionalFilePickerBridge.register(
+        Mobile.class,
+        resultSink -> new AndroidFilePicker(this, resultSink));
+    if (filePickerRegistration.isAvailable()) {
+      Log.i(TAG, "onCreate: optional file picker registered");
+    } else {
+      Log.i(TAG, "onCreate: optional file picker not declared, skipping");
+    }
   }
 
   private int hideSystemBars() {
