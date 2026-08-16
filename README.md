@@ -133,6 +133,9 @@ VERSION_CODE = major * 1_000_000 + minor * 10_000 + patch * 100 + extra
 ```
 
 Example: `v2.3.1` → `2030100`. Missing numbers default to `0`.
+The generated value is emitted from decimal arithmetic rather than as a
+zero-padded literal. This matters for versions such as `v0.8.9`: Gradle sees
+`80900`, never an octal-looking `0080900`.
 
 <a id="injecting-variables-into-go-ldflags"></a>
 ### Injecting variables into Go (ldflags)

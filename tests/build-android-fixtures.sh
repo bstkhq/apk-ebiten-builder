@@ -38,6 +38,7 @@ build_fixture() {
   local cleartext="$3"
   local back_invoked="$4"
   local allow_backup="$5"
+  local expected_version_code="$6"
   local root_dir="${build_parent}/${fixture}"
   local app_id="games.example.builder.${fixture}"
 
@@ -186,6 +187,8 @@ build_fixture() {
 
   local manifest
   manifest="$("${android_sdk_root}/cmdline-tools/latest/bin/apkanalyzer" manifest print "${apk}")"
+  test "$("${android_sdk_root}/cmdline-tools/latest/bin/apkanalyzer" manifest version-code "${apk}")" \
+    = "${expected_version_code}"
   grep -Fq 'android.permission.ACCESS_NETWORK_STATE' <<<"${manifest}"
   grep -Fq 'android:name="games.example.builder.'"${fixture}"'.ProcessRestartActivity"' \
     <<<"${manifest}"
@@ -221,7 +224,7 @@ build_fixture() {
   echo "build-android-fixtures: ${fixture} (${android_target}) passed"
 }
 
-build_fixture legacy v1.0.1 "" "" true
-build_fixture bridge v1.0.2 true "" false
-build_fixture back v1.0.3 "" true true
-build_fixture picker v1.0.4 "" "" true
+build_fixture legacy v0.8.9 "" "" true 80900
+build_fixture bridge v1.0.2 true "" false 1000200
+build_fixture back v1.0.3 "" true true 1000300
+build_fixture picker v1.0.4 "" "" true 1000400
