@@ -117,6 +117,14 @@ device_test_launch_activity() {
   "${adb_cmd[@]}" shell am start -W -n "${component}" >/dev/null
 }
 
+device_test_install_apk() {
+  local apk="$1"
+  test -s "${apk}"
+  # Fixtures are debuggable APKs. Allow a lower versionCode so a gate remains
+  # repeatable after its version fixture changes between revisions.
+  "${adb_cmd[@]}" install -r -d "${apk}" >/dev/null
+}
+
 device_test_top_activity() {
   "${adb_cmd[@]}" shell dumpsys activity activities \
     | grep -m 1 'topResumedActivity' || true

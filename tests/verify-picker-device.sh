@@ -35,7 +35,7 @@ cleanup() {
 trap cleanup EXIT
 
 device_test_session_begin
-"${adb_cmd[@]}" install -r "${apk}" >/dev/null
+device_test_install_apk "${apk}"
 "${adb_cmd[@]}" shell pm clear "${package}" >/dev/null
 "${adb_cmd[@]}" logcat -c
 "${adb_cmd[@]}" shell mkdir -p /sdcard/Download

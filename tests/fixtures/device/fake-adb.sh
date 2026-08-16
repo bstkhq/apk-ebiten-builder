@@ -16,6 +16,14 @@ if [[ "${1:-}" == get-state ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == install ]]; then
+  test "${2:-}" = -r
+  test "${3:-}" = -d
+  test -n "${4:-}"
+  test "$#" -eq 4
+  exit 0
+fi
+
 if [[ "${1:-}" != shell ]]; then
   echo "unsupported fake adb command: $*" >&2
   exit 2

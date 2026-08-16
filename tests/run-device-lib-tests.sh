@@ -32,6 +32,9 @@ reset_state S 0
 device_test_session_begin
 test "$(tr -d '\r\n' < "${FAKE_ADB_STATE}/go-log")" = V
 test "$(tr -d '\r\n' < "${FAKE_ADB_STATE}/stay-awake")" = 7
+fixture_apk="${scratch_dir}/fixture.apk"
+printf '%s\n' fixture > "${fixture_apk}"
+device_test_install_apk "${fixture_apk}"
 device_test_launch_activity games.example.builder.fixture/.MainActivity
 device_test_wait_for_top_activity games.example.builder.fixture/.MainActivity
 test "$(cat "${FAKE_ADB_STATE}/top-count")" = 4
@@ -45,6 +48,7 @@ device_test_session_cleanup games.example.builder.fixture
 test "$(tr -d '\r\n' < "${FAKE_ADB_STATE}/go-log")" = S
 test "$(tr -d '\r\n' < "${FAKE_ADB_STATE}/stay-awake")" = 0
 grep -Fq 'input keyevent KEYCODE_HOME' "${FAKE_ADB_STATE}/commands"
+grep -Fq "install -r -d ${fixture_apk}" "${FAKE_ADB_STATE}/commands"
 grep -Fq 'am start -W -n games.example.builder.fixture/.MainActivity' \
   "${FAKE_ADB_STATE}/commands"
 grep -Fq 'am force-stop games.example.builder.fixture' "${FAKE_ADB_STATE}/commands"
