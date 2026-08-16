@@ -1,6 +1,7 @@
 package mobile
 
 import (
+	"context"
 	"fmt"
 	"image/color"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bstkhq/apk-ebiten-builder/bridge"
 	"github.com/hajimehoshi/ebiten/v2"
 	ebitenmobile "github.com/hajimehoshi/ebiten/v2/mobile"
 )
@@ -22,39 +24,32 @@ type IMEBridge interface {
 
 func RegisterIMEBridge(IMEBridge) {}
 
-// AndroidBridge is the complete runtime contract implemented by the APK
-// builder. Methods returning an error map to Java methods that throw Exception.
+// AndroidBridge is local so gomobile exports it from package mobile. Embedding
+// keeps the complete contract owned by bridge instead of copying its methods.
 type AndroidBridge interface {
-	AndroidID() (string, error)
-	Manufacturer() string
-	Model() string
-	PackageName() string
-	VersionName() (string, error)
-	VersionCode() (int64, error)
-	AndroidVersion() string
-	SDKInt() int32
-	TimeZone() (string, error)
-	Locales() (string, error)
-	FilesDir() (string, error)
-	NoBackupFilesDir() (string, error)
-	CacheDir() (string, error)
-	BatteryLevel() (float64, error)
-	BatteryPlugged() (bool, error)
-	Interactive() (bool, error)
-	PowerSaveMode() (bool, error)
-	NetworkTransports() (string, error)
-	NetworkMetered() (bool, error)
-	LocalIPAddresses() (string, error)
-	RestartApp() error
+	bridge.AndroidBridge
 }
 
 var (
+	androidRuntime  = bridge.NewClient()
 	restartRequest  sync.Once
 	processIdentity = fmt.Sprintf("%d:%d", os.Getpid(), time.Now().UnixNano())
 )
 
-func RegisterAndroidBridge(bridge AndroidBridge) {
-	noBackupDir, err := inspectBridge(bridge)
+// RegisterAndroidBridge is the only gomobile-facing adapter applications need.
+// The complete Android contract and its lifecycle handling live in bridge.
+func RegisterAndroidBridge(value AndroidBridge) {
+	androidRuntime.Register(value)
+}
+
+func runBridgeScenario() {
+	value, err := androidRuntime.Wait(context.Background())
+	if err != nil {
+		fmt.Printf("builder-bridge-fixture: runtime-wait-error=%v\n", err)
+		return
+	}
+
+	noBackupDir, err := inspectBridge(value)
 	if err != nil {
 		fmt.Printf("builder-bridge-fixture: runtime-error=%v\n", err)
 		return
@@ -81,7 +76,7 @@ func RegisterAndroidBridge(bridge AndroidBridge) {
 		go func() {
 			time.Sleep(1500 * time.Millisecond)
 			fmt.Println("builder-bridge-fixture: requesting-restart")
-			if err := bridge.RestartApp(); err != nil {
+			if err := value.RestartApp(); err != nil {
 				fmt.Printf("builder-bridge-fixture: restart-error=%v\n", err)
 			}
 		}()
@@ -222,6 +217,7 @@ func init() {
 	ebitenmobile.SetGame(fixtureGame{
 		background: color.RGBA{R: 0x3b, G: 0x7d, B: 0x23, A: 0xff},
 	})
+	go runBridgeScenario()
 }
 
 type fixtureGame struct {

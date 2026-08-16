@@ -4,7 +4,8 @@
 
 Build any **Ebiten** game as an **Android APK** using a `Makefile`-based workflow, **without Android Studio**.
 
-This repo is a reusable Android/Gradle template with build rules (`Include.mk`) that your project imports from its own `Makefile`. It handles:
+This repo is a reusable Android/Gradle template with build rules (`Include.mk`)
+and an optional Go runtime-bridge package that your project imports. It handles:
 
 1. Generating the Android project from the templates (substituting `@@VAR@@` placeholders).
 2. Compiling an Android library (`.aar`) from your Go `package mobile` with `ebitenmobile bind`.
@@ -97,7 +98,7 @@ GO_SRC   ?= $(abspath .)
 
 # Internal
 BUILDER_DIR  ?= .build/apk-ebiten-builder
-BUILDER_REPO ?= https://github.com/erparts/apk-ebiten-builder
+BUILDER_REPO ?= https://github.com/bstkhq/apk-ebiten-builder
 INCLUDE_PATH ?= $(BUILDER_DIR)/Include.mk
 
 export APP_ID
@@ -163,44 +164,101 @@ GO_LDFLAGS := -X 'my/pkg/env.DefaultURL=http://192.168.1.10:8080'
 export GO_LDFLAGS
 ```
 
-See the sample project `Makefile` (Buzzattack Kiosk) for a complete pattern with an optional `CONTROL_URL`.
+Use the same variable in the consuming application's `Makefile`; leave it
+empty when no compile-time configuration is needed.
 
 
 ## Android runtime bridge
 
-An application can opt in to Android runtime services by exporting this Go
-interface and registration function from the package passed to
-`ebitenmobile bind`:
+An application can opt in to Android runtime services without copying the
+long gomobile interface. Add the builder module at the same release version as
+the template you clone:
+
+```bash
+go get github.com/bstkhq/apk-ebiten-builder/bridge@<release-tag>
+```
+
+Then put this adapter in the `package mobile` passed to `ebitenmobile bind`:
 
 ```go
+package mobile
+
+import (
+	"context"
+	"log"
+	"time"
+	_ "time/tzdata"
+
+	"github.com/bstkhq/apk-ebiten-builder/bridge"
+)
+
+var androidRuntime = bridge.NewClient()
+
+// It must be a local named interface so gomobile exports it in Mobile.java.
+// The complete 21-method contract remains owned by bridge.
 type AndroidBridge interface {
-	AndroidID() (string, error)
-	Manufacturer() string
-	Model() string
-	PackageName() string
-	VersionName() (string, error)
-	VersionCode() (int64, error)
-	AndroidVersion() string
-	SDKInt() int32
-	TimeZone() (string, error)
-	Locales() (string, error)
-	FilesDir() (string, error)
-	NoBackupFilesDir() (string, error)
-	CacheDir() (string, error)
-	BatteryLevel() (float64, error)
-	BatteryPlugged() (bool, error)
-	Interactive() (bool, error)
-	PowerSaveMode() (bool, error)
-	NetworkTransports() (string, error)
-	NetworkMetered() (bool, error)
-	LocalIPAddresses() (string, error)
-	RestartApp() error
+	bridge.AndroidBridge
 }
 
-func RegisterAndroidBridge(bridge AndroidBridge) {
-	// Store or replace the current value. Android can recreate MainActivity.
+// This is the only required gomobile-facing adapter.
+func RegisterAndroidBridge(value AndroidBridge) {
+	androidRuntime.Register(value)
+}
+
+func init() {
+	go readAndroidRuntime()
+}
+
+func readAndroidRuntime() {
+	runtime, err := androidRuntime.Wait(context.Background())
+	if err != nil {
+		log.Printf("Android runtime unavailable: %v", err)
+		return
+	}
+
+	androidID, err := runtime.AndroidID()
+	if err != nil {
+		log.Printf("Android ID unavailable: %v", err)
+		return
+	}
+	if androidID == "" {
+		log.Printf("Android returned an empty ID")
+		return
+	}
+	timeZone, err := runtime.TimeZone()
+	if err != nil {
+		log.Printf("time zone unavailable: %v", err)
+		return
+	}
+	location, err := time.LoadLocation(timeZone)
+	if err != nil {
+		log.Printf("invalid Android time zone %q: %v", timeZone, err)
+		return
+	}
+	time.Local = location
+
+	log.Printf("Android ready: model=%s sdk=%d", runtime.Model(), runtime.SDKInt())
+	// Start the game or use androidID here.
 }
 ```
+
+This pattern lets an application wait until the activity supplies Android
+identity and locale data, then start with those values. The complete,
+executable reference is the
+[`bridge` fixture](tests/fixtures/bridge/mobile.go), which additionally reads
+every service and exercises activity recreation.
+
+`ebitenmobile` only exposes API declared in the package it binds. Therefore
+the local embedded `AndroidBridge` and `RegisterAndroidBridge` are intentional:
+passing `bridge.AndroidBridge` directly makes gomobile omit the export. The
+embedding keeps the Java-facing type local while avoiding a copied contract.
+
+`Client.Register` is safe to call repeatedly and replaces the old bridge when
+Android recreates `MainActivity`. `Wait` blocks until the first registration or
+context cancellation; `Current` returns the latest registered bridge for code
+that is already running. Do not retain a returned bridge indefinitely if the
+application must survive activity recreation—call `Current` again when the
+value is needed.
 
 The registration is discovered reflectively, so applications that do not
 export it still build. If an export with that name has an incompatible
@@ -360,11 +418,12 @@ make test-android  # gates above + all fixture APKs and Android lint
 make test-device   # build gate + runtime, restart, Back, picker and IME checks
 ```
 
-The Android build gate compiles legacy, AndroidBridge-only, independent Back,
-independent file-picker and early-IME packages. It inspects the actual gomobile
-Java signatures, runs Debug and Release lint, verifies APK signatures, and
-checks 16 KiB ZIP and native ELF alignment. It defaults to amd64 plus arm64;
-override `ANDROID_TARGET` when a narrower fixture is required.
+The Android build gate compiles legacy, the `bridge`-package AndroidBridge
+example, independent Back, independent file-picker and early-IME packages. It
+inspects the actual gomobile Java signatures, runs Debug and Release lint,
+verifies APK signatures, and checks 16 KiB ZIP and native ELF alignment. It
+defaults to amd64 plus arm64; override `ANDROID_TARGET` when a narrower fixture
+is required.
 
 The builder supplies the linker flags required by NDK r26 for 16 KiB-aligned
 native libraries, independently of any values injected through `GO_LDFLAGS`.
