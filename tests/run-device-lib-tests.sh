@@ -65,4 +65,39 @@ if device_test_session_begin >/dev/null 2>&1; then
 fi
 test "${DEVICE_TEST_SESSION_ACTIVE}" = false
 
-echo "run-device-lib-tests: session setup, stable focus and exact restoration passed"
+for failed_capture in \
+  'getprop log.tag.GoLog' \
+  'settings get global stay_on_while_plugged_in'; do
+  reset_state D 3
+  export FAKE_ADB_FAIL_COMMAND="${failed_capture}"
+  if device_test_session_begin >/dev/null 2>&1; then
+    echo "failed device-state capture was accepted: ${failed_capture}" >&2
+    exit 1
+  fi
+  unset FAKE_ADB_FAIL_COMMAND
+  test "${DEVICE_TEST_SESSION_ACTIVE}" = false
+  test "$(tr -d '\r\n' < "${FAKE_ADB_STATE}/go-log")" = D
+  test "$(tr -d '\r\n' < "${FAKE_ADB_STATE}/stay-awake")" = 3
+  if grep -Fq 'setprop log.tag.GoLog V' "${FAKE_ADB_STATE}/commands"; then
+    echo "device state changed after its original state could not be captured" >&2
+    exit 1
+  fi
+done
+
+reset_state D 3
+device_test_session_begin
+device_test_session_cleanup games.example.builder.fixture
+test "$(tr -d '\r\n' < "${FAKE_ADB_STATE}/go-log")" = D
+test "$(tr -d '\r\n' < "${FAKE_ADB_STATE}/stay-awake")" = 3
+
+export FAKE_ADB_FAIL_COMMAND='dumpsys activity activities'
+timeout_seconds=2
+if device_test_wait_until_not_top_activity \
+    games.example.builder.fixture/.MainActivity >/dev/null 2>&1; then
+  echo "missing Activity state was accepted as a launcher transition" >&2
+  exit 1
+fi
+unset FAKE_ADB_FAIL_COMMAND
+timeout_seconds=5
+
+echo "run-device-lib-tests: session setup, capture failure, stable focus and exact restoration passed"

@@ -40,8 +40,13 @@ device_test_session_begin() {
     return 1
   fi
 
-  DEVICE_TEST_ORIGINAL_GO_LOG_LEVEL="$("${adb_cmd[@]}" shell getprop log.tag.GoLog \
-    2>/dev/null | tr -d '\r' || true)"
+  if ! DEVICE_TEST_ORIGINAL_GO_LOG_LEVEL="$(
+    "${adb_cmd[@]}" shell getprop log.tag.GoLog 2>/dev/null
+  )"; then
+    echo "cannot read log.tag.GoLog from the selected ADB target" >&2
+    return 1
+  fi
+  DEVICE_TEST_ORIGINAL_GO_LOG_LEVEL="${DEVICE_TEST_ORIGINAL_GO_LOG_LEVEL//$'\r'/}"
   case "${DEVICE_TEST_ORIGINAL_GO_LOG_LEVEL}" in
     ""|V|D|I|W|E|F|S) ;;
     *)
@@ -50,8 +55,13 @@ device_test_session_begin() {
       ;;
   esac
 
-  DEVICE_TEST_ORIGINAL_STAY_AWAKE="$("${adb_cmd[@]}" shell settings get global \
-    stay_on_while_plugged_in 2>/dev/null | tr -d '\r' || true)"
+  if ! DEVICE_TEST_ORIGINAL_STAY_AWAKE="$(
+    "${adb_cmd[@]}" shell settings get global stay_on_while_plugged_in 2>/dev/null
+  )"; then
+    echo "cannot read stay_on_while_plugged_in from the selected ADB target" >&2
+    return 1
+  fi
+  DEVICE_TEST_ORIGINAL_STAY_AWAKE="${DEVICE_TEST_ORIGINAL_STAY_AWAKE//$'\r'/}"
   if [[ ! "${DEVICE_TEST_ORIGINAL_STAY_AWAKE}" =~ ^([0-9]+|null)$ ]]; then
     echo "unexpected stay_on_while_plugged_in value: ${DEVICE_TEST_ORIGINAL_STAY_AWAKE}" >&2
     return 1
@@ -152,13 +162,13 @@ device_test_wait_until_not_top_activity() {
   local top
   while (( SECONDS < deadline )); do
     top="$(device_test_top_activity)"
-    if grep -Fq "${component}" <<<"${top}"; then
-      consecutive=0
-    else
+    if [[ -n "${top}" ]] && ! grep -Fq "${component}" <<<"${top}"; then
       consecutive=$((consecutive + 1))
       if (( consecutive >= stable_samples )); then
         return 0
       fi
+    else
+      consecutive=0
     fi
     sleep 0.25
   done

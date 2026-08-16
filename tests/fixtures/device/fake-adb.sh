@@ -23,15 +23,17 @@ fi
 shift
 command="$*"
 
+if [[ -n "${FAKE_ADB_FAIL_COMMAND:-}" \
+    && "${command}" == "${FAKE_ADB_FAIL_COMMAND}" ]]; then
+  exit 1
+fi
+
 case "${command}" in
   'getprop log.tag.GoLog')
     cat "${state_dir}/go-log"
     ;;
-  'setprop log.tag.GoLog V')
-    printf '%s\n' V > "${state_dir}/go-log"
-    ;;
-  'setprop log.tag.GoLog S')
-    printf '%s\n' S > "${state_dir}/go-log"
+  setprop\ log.tag.GoLog\ [VDIWEFS])
+    printf '%s\n' "${command##* }" > "${state_dir}/go-log"
     ;;
   'setprop log.tag.GoLog ""')
     : > "${state_dir}/go-log"
@@ -39,11 +41,10 @@ case "${command}" in
   'settings get global stay_on_while_plugged_in')
     cat "${state_dir}/stay-awake"
     ;;
-  'settings put global stay_on_while_plugged_in 7')
-    printf '%s\n' 7 > "${state_dir}/stay-awake"
-    ;;
-  'settings put global stay_on_while_plugged_in 0')
-    printf '%s\n' 0 > "${state_dir}/stay-awake"
+  settings\ put\ global\ stay_on_while_plugged_in\ [0-9]*)
+    value="${command##* }"
+    [[ "${value}" =~ ^[0-9]+$ ]]
+    printf '%s\n' "${value}" > "${state_dir}/stay-awake"
     ;;
   'settings delete global stay_on_while_plugged_in')
     printf '%s\n' null > "${state_dir}/stay-awake"
