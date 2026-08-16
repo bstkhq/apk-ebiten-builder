@@ -7,7 +7,7 @@
     android:icon="@mipmap/ic_launcher"
     android:roundIcon="@mipmap/ic_launcher_round"
     android:supportsRtl="true"
-    android:allowBackup="true"
+    android:allowBackup="@@ALLOW_BACKUP@@"
     @@USES_CLEARTEXT_TRAFFIC_ATTRIBUTE@@
     @@ENABLE_ON_BACK_INVOKED_CALLBACK_ATTRIBUTE@@
     android:label="@@APP_NAME@@"
