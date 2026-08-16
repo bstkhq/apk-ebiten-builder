@@ -2,7 +2,9 @@
 
 test:
 	./tests/run-java-tests.sh
+	./tests/run-go-tests.sh
 	./tests/run-template-tests.sh
+	./tests/run-device-lib-tests.sh
 
 test-android: test
 	./tests/build-android-fixtures.sh

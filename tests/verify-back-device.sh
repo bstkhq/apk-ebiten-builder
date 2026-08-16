@@ -8,87 +8,27 @@ adb_bin="${ADB:-adb}"
 serial="${ADB_SERIAL:-${1:-}}"
 timeout_seconds="${DEVICE_TIMEOUT_SECONDS:-180}"
 
-if [[ ! "${timeout_seconds}" =~ ^[1-9][0-9]*$ ]]; then
-  echo "DEVICE_TIMEOUT_SECONDS must be a positive integer" >&2
-  exit 2
-fi
-
 adb_cmd=("${adb_bin}")
 if [[ -n "${serial}" ]]; then
   adb_cmd+=( -s "${serial}" )
 fi
 
+# shellcheck source=device-test-lib.sh
+source "${repo_dir}/tests/device-test-lib.sh"
+
 test -s "${apk}"
 
-original_go_log_level="$(
-  "${adb_cmd[@]}" shell getprop log.tag.GoLog 2>/dev/null | tr -d '\r' || true
-)"
-case "${original_go_log_level}" in
-  ""|V|D|I|W|E|F|S) ;;
-  *)
-    echo "unexpected log.tag.GoLog value: ${original_go_log_level}" >&2
-    exit 1
-    ;;
-esac
-original_stay_awake="$(
-  "${adb_cmd[@]}" shell settings get global stay_on_while_plugged_in \
-    2>/dev/null | tr -d '\r' || true
-)"
-if [[ ! "${original_stay_awake}" =~ ^[0-9]+$ ]]; then
-  echo "unexpected stay_on_while_plugged_in value: ${original_stay_awake}" >&2
-  exit 1
-fi
-
 cleanup() {
-  "${adb_cmd[@]}" shell am force-stop "${package}" >/dev/null 2>&1 || true
-  if [[ -n "${original_go_log_level}" ]]; then
-    "${adb_cmd[@]}" shell setprop log.tag.GoLog "${original_go_log_level}" \
-      >/dev/null 2>&1 || true
-  else
-    "${adb_cmd[@]}" shell 'setprop log.tag.GoLog ""' >/dev/null 2>&1 || true
-  fi
-  "${adb_cmd[@]}" shell settings put global stay_on_while_plugged_in \
-    "${original_stay_awake}" >/dev/null 2>&1 || true
+  device_test_session_cleanup "${package}"
 }
 trap cleanup EXIT
 
-"${adb_cmd[@]}" shell setprop log.tag.GoLog V
-test "$("${adb_cmd[@]}" shell getprop log.tag.GoLog | tr -d '\r')" = V
-"${adb_cmd[@]}" shell settings put global stay_on_while_plugged_in 7
-"${adb_cmd[@]}" shell input keyevent KEYCODE_WAKEUP
-"${adb_cmd[@]}" shell wm dismiss-keyguard
-"${adb_cmd[@]}" install -r "${apk}" >/dev/null
+device_test_session_begin
+device_test_install_apk "${apk}"
 "${adb_cmd[@]}" shell pm clear "${package}" >/dev/null
 "${adb_cmd[@]}" logcat -c
-"${adb_cmd[@]}" shell cmd statusbar collapse >/dev/null 2>&1 || true
-# HOME gives OEM SystemUI implementations that ignore `statusbar collapse` a
-# deterministic surface to leave before the fixture is launched.
-"${adb_cmd[@]}" shell input keyevent KEYCODE_HOME
-"${adb_cmd[@]}" shell am start -n "${package}/.MainActivity" >/dev/null
-
-top_activity() {
-  "${adb_cmd[@]}" shell dumpsys activity activities \
-    | grep -m 1 'topResumedActivity' || true
-}
-
-wait_for_activity_on_top() {
-  local deadline=$((SECONDS + timeout_seconds))
-  local top
-  while (( SECONDS < deadline )); do
-    top="$(top_activity)"
-    if grep -Fq "${package}/.MainActivity" <<<"${top}"; then
-      return 0
-    fi
-    sleep 0.25
-  done
-  echo "Back fixture did not become top-resumed; focus is: $(
-    "${adb_cmd[@]}" shell dumpsys window \
-      | grep -m 1 'mCurrentFocus=' || true
-  )" >&2
-  return 1
-}
-
-wait_for_activity_on_top
+device_test_launch_activity "${package}/.MainActivity"
+device_test_wait_for_top_activity "${package}/.MainActivity"
 
 pid=""
 ready=false
@@ -109,7 +49,7 @@ while (( SECONDS < deadline )); do
 done
 test "${ready}" = true
 
-wait_for_activity_on_top
+device_test_wait_for_top_activity "${package}/.MainActivity"
 "${adb_cmd[@]}" shell input keyevent KEYCODE_BACK
 first_consumed=false
 deadline=$((SECONDS + timeout_seconds))
@@ -123,22 +63,23 @@ while (( SECONDS < deadline )); do
 done
 test "${first_consumed}" = true
 test "$("${adb_cmd[@]}" shell pidof "${package}" | tr -d '\r')" = "${pid}"
-wait_for_activity_on_top
+device_test_wait_for_top_activity "${package}/.MainActivity"
 
 "${adb_cmd[@]}" shell input keyevent KEYCODE_BACK
 second_fell_through=false
 deadline=$((SECONDS + timeout_seconds))
 while (( SECONDS < deadline )); do
   process_log="$("${adb_cmd[@]}" logcat -d --pid="${pid}" -t 2500 GoLog:V '*:S' || true)"
-  top_activity="$(top_activity)"
+  current_top="$(device_test_top_activity)"
   if grep -Fq 'builder-back-fixture: call=2 consumed=false' <<<"${process_log}" \
-      && ! grep -Fq "${package}/.MainActivity" <<<"${top_activity}"; then
+      && ! grep -Fq "${package}/.MainActivity" <<<"${current_top}"; then
     second_fell_through=true
     break
   fi
   sleep 0.25
 done
 test "${second_fell_through}" = true
+device_test_wait_until_not_top_activity "${package}/.MainActivity"
 test "$(grep -Fc 'builder-back-fixture: call=1 consumed=true' <<<"${process_log}")" -eq 1
 test "$(grep -Fc 'builder-back-fixture: call=2 consumed=false' <<<"${process_log}")" -eq 1
 if grep -Fq 'builder-back-fixture: call=3' <<<"${process_log}"; then

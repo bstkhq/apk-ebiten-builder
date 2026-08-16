@@ -8,26 +8,27 @@ adb_bin="${ADB:-adb}"
 serial="${ADB_SERIAL:-${1:-}}"
 timeout_seconds="${DEVICE_TIMEOUT_SECONDS:-180}"
 
-if [[ ! "${timeout_seconds}" =~ ^[1-9][0-9]*$ ]]; then
-  echo "DEVICE_TIMEOUT_SECONDS must be a positive integer" >&2
-  exit 2
-fi
-
 adb_cmd=("${adb_bin}")
 if [[ -n "${serial}" ]]; then
   adb_cmd+=( -s "${serial}" )
 fi
 
+# shellcheck source=device-test-lib.sh
+source "${repo_dir}/tests/device-test-lib.sh"
+
 test -s "${apk}"
 
 cleanup() {
-  "${adb_cmd[@]}" shell am force-stop "${package}" >/dev/null 2>&1 || true
+  device_test_session_cleanup "${package}"
 }
 trap cleanup EXIT
 
-"${adb_cmd[@]}" install -r "${apk}" >/dev/null
+device_test_session_begin
+device_test_install_apk "${apk}"
 "${adb_cmd[@]}" shell pm clear "${package}" >/dev/null
-"${adb_cmd[@]}" shell am start -n "${package}/.MainActivity" >/dev/null
+"${adb_cmd[@]}" logcat -c
+device_test_launch_activity "${package}/.MainActivity"
+device_test_wait_for_top_activity "${package}/.MainActivity"
 
 pid=""
 ready=false
@@ -59,12 +60,11 @@ if grep -Fq 'fatal error' <<<"${process_log}"; then
 fi
 
 sleep 2
-if "${adb_cmd[@]}" shell dumpsys input_method | grep -Fq 'mInputShown=true'; then
+if "${adb_cmd[@]}" shell dumpsys input_method \
+    | grep -Eq 'mInputShown=true|isInputViewShown=true'; then
   echo "legacy fixture unexpectedly opened the IME" >&2
   exit 1
 fi
-"${adb_cmd[@]}" shell dumpsys activity activities \
-  | grep -m 1 'topResumedActivity' \
-  | grep -Fq "${package}/.MainActivity"
+device_test_wait_for_top_activity "${package}/.MainActivity"
 
 echo "verify-legacy-device: PID ${pid}, legacy ID/time zone and unchanged IME passed"
