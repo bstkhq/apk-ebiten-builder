@@ -25,8 +25,10 @@ default_dir="${scratch_dir}/default"
 cleartext_true_dir="${scratch_dir}/cleartext-true"
 cleartext_false_dir="${scratch_dir}/cleartext-false"
 generate "${default_dir}" VERSION=v1.19.2
-generate "${cleartext_true_dir}" USES_CLEARTEXT_TRAFFIC=true SCREEN_ORIENTATION=landscape
-generate "${cleartext_false_dir}" USES_CLEARTEXT_TRAFFIC=false
+generate "${cleartext_true_dir}" USES_CLEARTEXT_TRAFFIC=true \
+  ENABLE_ON_BACK_INVOKED_CALLBACK=true SCREEN_ORIENTATION=landscape
+generate "${cleartext_false_dir}" USES_CLEARTEXT_TRAFFIC=false \
+  ENABLE_ON_BACK_INVOKED_CALLBACK=false
 
 default_manifest="${default_dir}/.build/android/app/src/main/AndroidManifest.xml"
 true_manifest="${cleartext_true_dir}/.build/android/app/src/main/AndroidManifest.xml"
@@ -39,8 +41,14 @@ if grep -Fq 'android:usesCleartextTraffic=' "${default_manifest}"; then
   echo "default manifest unexpectedly overrides Android cleartext policy" >&2
   exit 1
 fi
+if grep -Fq 'android:enableOnBackInvokedCallback=' "${default_manifest}"; then
+  echo "default manifest unexpectedly overrides Android Back dispatch policy" >&2
+  exit 1
+fi
 grep -Fq 'android:usesCleartextTraffic="true"' "${true_manifest}"
 grep -Fq 'android:usesCleartextTraffic="false"' "${false_manifest}"
+grep -Fq 'android:enableOnBackInvokedCallback="true"' "${true_manifest}"
+grep -Fq 'android:enableOnBackInvokedCallback="false"' "${false_manifest}"
 grep -Fq 'android:screenOrientation="landscape"' "${true_manifest}"
 grep -Fq 'android:exported="false"' "${default_manifest}"
 grep -Fq 'android:process=":restart"' "${default_manifest}"
@@ -49,9 +57,12 @@ grep -Fq 'versionCode 1190200' "${default_gradle}"
 
 test -f "${generated_java}/MainActivity.java"
 test -f "${generated_java}/OptionalAndroidBridge.java"
+test -f "${generated_java}/OptionalBackBridge.java"
 test -f "${generated_java}/AndroidBridgeServices.java"
 test -f "${generated_java}/ProcessRestartActivity.java"
 grep -Fq 'registerAndroidBridge' "${generated_java}/OptionalAndroidBridge.java"
+grep -Fq 'registerBackBridge' "${generated_java}/OptionalBackBridge.java"
+grep -Fq 'registerOptionalBackBridge()' "${generated_java}/MainActivity.java"
 grep -Fq 'linkToDeath(deathRecipient, 0)' "${generated_java}/ProcessRestartActivity.java"
 grep -Fq 'Process.killProcess(previousPid)' "${generated_java}/ProcessRestartActivity.java"
 if grep -Fq 'ActivityManager' "${generated_java}/ProcessRestartActivity.java"; then
@@ -82,4 +93,12 @@ for invalid in TRUE yes 1 'true false'; do
   fi
 done
 
-echo "run-template-tests: defaults, strict cleartext options, restart and IME isolation passed"
+for invalid in TRUE yes 1 'true false'; do
+  invalid_dir="${scratch_dir}/invalid-back-${invalid// /-}"
+  if generate "${invalid_dir}" ENABLE_ON_BACK_INVOKED_CALLBACK="${invalid}" >/dev/null 2>&1; then
+    echo "invalid ENABLE_ON_BACK_INVOKED_CALLBACK=${invalid} was accepted" >&2
+    exit 1
+  fi
+done
+
+echo "run-template-tests: defaults, strict cleartext/Back options, bridges, restart and IME isolation passed"
