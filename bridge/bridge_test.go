@@ -46,6 +46,23 @@ func (b *fakeIMEBridge) calls() ([]imeRequest, int) {
 	return append([]imeRequest(nil), b.shows...), b.hides
 }
 
+type fakeFilePickerOpener struct {
+	mu        sync.Mutex
+	mimeTypes []string
+}
+
+func (o *fakeFilePickerOpener) Open(mimeType string) {
+	o.mu.Lock()
+	o.mimeTypes = append(o.mimeTypes, mimeType)
+	o.mu.Unlock()
+}
+
+func (o *fakeFilePickerOpener) calls() []string {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return append([]string(nil), o.mimeTypes...)
+}
+
 func TestClientWaitsForRegistration(t *testing.T) {
 	client := NewClient()
 	waitResult := make(chan AndroidBridge, 1)
@@ -233,6 +250,68 @@ func TestIMEClientComposingUsesCurrentBridge(t *testing.T) {
 	client.Register(second)
 	if got := client.Composing(); got != "replacement" {
 		t.Fatalf("Composing after recreation = %q, want %q", got, "replacement")
+	}
+}
+
+func TestBackClientUsesLatestHandler(t *testing.T) {
+	var client BackClient
+	if client.OnBack() {
+		t.Fatal("OnBack without a handler = true, want false")
+	}
+
+	calls := 0
+	client.SetHandler(BackHandlerFunc(func() bool {
+		calls++
+		return calls == 1
+	}))
+	if !client.OnBack() {
+		t.Fatal("first OnBack = false, want true")
+	}
+	if client.OnBack() {
+		t.Fatal("second OnBack = true, want false")
+	}
+	client.SetHandler(nil)
+	if client.OnBack() {
+		t.Fatal("OnBack after clearing handler = true, want false")
+	}
+}
+
+func TestFilePickerClientTracksCurrentOpenerAndHandler(t *testing.T) {
+	var client FilePickerClient
+	if client.Open("text/plain") {
+		t.Fatal("Open before Register = true, want false")
+	}
+
+	var results []string
+	client.SetResultHandler(FilePickerHandlerFunc(func(path, message string) {
+		results = append(results, path+"|"+message)
+	}))
+	client.OnResult("first", "")
+	if got := len(results); got != 1 || results[0] != "first|" {
+		t.Fatalf("results = %#v, want one forwarded result", results)
+	}
+
+	first := new(fakeFilePickerOpener)
+	second := new(fakeFilePickerOpener)
+	client.Register(first)
+	if !client.Open("text/plain") {
+		t.Fatal("Open after first Register = false, want true")
+	}
+	client.Register(second)
+	if !client.Open("application/pdf") {
+		t.Fatal("Open after replacement Register = false, want true")
+	}
+	if got := first.calls(); len(got) != 1 || got[0] != "text/plain" {
+		t.Fatalf("first opener calls = %#v, want text/plain", got)
+	}
+	if got := second.calls(); len(got) != 1 || got[0] != "application/pdf" {
+		t.Fatalf("second opener calls = %#v, want application/pdf", got)
+	}
+
+	client.SetResultHandler(nil)
+	client.OnResult("ignored", "")
+	if got := len(results); got != 1 {
+		t.Fatalf("result count after clear = %d, want 1", got)
 	}
 }
 

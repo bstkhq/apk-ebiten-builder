@@ -4,8 +4,8 @@
 // A gomobile application must still expose locally named interfaces and
 // registration functions from its package mobile so the generated Java binding
 // has entry points. This package owns the canonical method sets and
-// lifecycle-safe registration state for AndroidBridge and IMEClient, so
-// applications do not need to duplicate either of them.
+// lifecycle-safe client state, so applications do not need to duplicate either
+// of them.
 package bridge
 
 import (

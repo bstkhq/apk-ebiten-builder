@@ -20,12 +20,17 @@ import java.util.List;
  * <pre>{@code
  * import "github.com/bstkhq/apk-ebiten-builder/bridge"
  *
+ * var picker = bridge.NewFilePickerClient()
+ *
  * type FilePickerHandler interface { bridge.FilePickerHandler }
  * type FilePickerBridge interface {
  *     bridge.FilePickerOpener
  *     SetHandler(FilePickerHandler)
  * }
- * func RegisterFilePickerBridge(FilePickerBridge)
+ * func RegisterFilePickerBridge(value FilePickerBridge) {
+ *     picker.Register(value)
+ *     value.SetHandler(picker)
+ * }
  * }</pre>
  *
  * <p>Applications without that export keep their existing behavior. A named

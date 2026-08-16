@@ -186,13 +186,63 @@ type BackBridge interface {
 	SetHandler(BackHandler)
 }
 
+// BackHandlerFunc adapts a function to BackHandler.
+type BackHandlerFunc func() bool
+
+// OnBack calls f, or returns false when f is nil.
+func (f BackHandlerFunc) OnBack() bool {
+	return f != nil && f()
+}
+
+// BackClient owns the current BackHandler for a mobile application.
+//
+// Its zero value is ready to use. It implements BackHandler itself, allowing a
+// local gomobile adapter to install it every time Android registers a
+// BackBridge. A BackClient must not be copied after first use.
+type BackClient struct {
+	mu      sync.RWMutex
+	handler BackHandler
+}
+
+var _ BackHandler = (*BackClient)(nil)
+
+// NewBackClient returns an empty BackClient ready to receive a handler.
+func NewBackClient() *BackClient {
+	return new(BackClient)
+}
+
+// SetHandler replaces the handler called for Back events. Passing nil restores
+// Android's default Back behavior.
+func (c *BackClient) SetHandler(handler BackHandler) {
+	if c == nil {
+		panic("bridge: SetHandler called on a nil BackClient")
+	}
+
+	c.mu.Lock()
+	c.handler = handler
+	c.mu.Unlock()
+}
+
+// OnBack forwards one Android Back event to the current handler. It returns
+// false when no handler is installed.
+func (c *BackClient) OnBack() bool {
+	if c == nil {
+		return false
+	}
+
+	c.mu.RLock()
+	handler := c.handler
+	c.mu.RUnlock()
+	return handler != nil && handler.OnBack()
+}
+
 // FilePickerHandler receives one result from the Android system document
 // picker.
 type FilePickerHandler interface {
-	// OnResult receives either a local temporary path and an empty message on
-	// success, two empty strings on cancellation, or an empty path and a
-	// non-empty message on failure. The application owns a successful temporary
-	// file and should remove it when no longer needed.
+	// OnResult runs on Android's UI thread. It receives either a local temporary
+	// path and an empty message on success, two empty strings on cancellation,
+	// or an empty path and a non-empty message on failure. The application owns
+	// a successful temporary file and should remove it when no longer needed.
 	OnResult(path, message string)
 }
 
@@ -214,4 +264,95 @@ type FilePickerBridge interface {
 	// SetHandler replaces the receiver for picker results. Passing nil stops
 	// result delivery.
 	SetHandler(FilePickerHandler)
+}
+
+// FilePickerHandlerFunc adapts a function to FilePickerHandler.
+type FilePickerHandlerFunc func(path, message string)
+
+// OnResult calls f when f is not nil.
+func (f FilePickerHandlerFunc) OnResult(path, message string) {
+	if f != nil {
+		f(path, message)
+	}
+}
+
+// FilePickerClient owns the current picker opener and result handler.
+//
+// Its zero value is ready to use. A local gomobile adapter registers the
+// FilePickerOpener and installs this client as its local FilePickerHandler each
+// time Android creates an Activity. FilePickerClient intentionally does not
+// replay Open across recreation because reopening a system picker must remain a
+// user action. A FilePickerClient must not be copied after first use.
+type FilePickerClient struct {
+	mu      sync.RWMutex
+	opener  FilePickerOpener
+	handler FilePickerHandler
+}
+
+var _ FilePickerHandler = (*FilePickerClient)(nil)
+
+// NewFilePickerClient returns an empty FilePickerClient ready to receive an
+// Android picker opener.
+func NewFilePickerClient() *FilePickerClient {
+	return new(FilePickerClient)
+}
+
+// Register records opener as the current Android picker opener. It must be
+// called by the local RegisterFilePickerBridge export in the package bound by
+// gomobile whenever Android creates or recreates an Activity.
+func (c *FilePickerClient) Register(opener FilePickerOpener) {
+	if c == nil {
+		panic("bridge: Register called on a nil FilePickerClient")
+	}
+	if opener == nil {
+		panic("bridge: Register called with a nil FilePickerOpener")
+	}
+
+	c.mu.Lock()
+	c.opener = opener
+	c.mu.Unlock()
+}
+
+// SetResultHandler replaces the handler that receives picker results. Passing
+// nil stops result delivery.
+func (c *FilePickerClient) SetResultHandler(handler FilePickerHandler) {
+	if c == nil {
+		panic("bridge: SetResultHandler called on a nil FilePickerClient")
+	}
+
+	c.mu.Lock()
+	c.handler = handler
+	c.mu.Unlock()
+}
+
+// Open starts Android's system document picker with mimeType. It returns false
+// when Android has not registered an opener yet. An Open request is never
+// retained across Activity recreation.
+func (c *FilePickerClient) Open(mimeType string) bool {
+	if c == nil {
+		return false
+	}
+
+	c.mu.RLock()
+	opener := c.opener
+	c.mu.RUnlock()
+	if opener == nil {
+		return false
+	}
+	opener.Open(mimeType)
+	return true
+}
+
+// OnResult forwards one picker result to the current result handler.
+func (c *FilePickerClient) OnResult(path, message string) {
+	if c == nil {
+		return
+	}
+
+	c.mu.RLock()
+	handler := c.handler
+	c.mu.RUnlock()
+	if handler != nil {
+		handler.OnResult(path, message)
+	}
 }

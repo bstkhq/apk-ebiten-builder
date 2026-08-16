@@ -316,11 +316,13 @@ leaves Android's manifest policy untouched.
 
 Back dispatch is an independent optional contract because Android calls into
 Go, while `AndroidBridge` exposes services that Go calls. Applications use the
-documented `bridge.BackHandler` contract and retain only the local type that
-gomobile must export:
+documented `bridge.BackClient` and retain only the local types that gomobile
+must export:
 
 ```go
 import "github.com/bstkhq/apk-ebiten-builder/bridge"
+
+var back = bridge.NewBackClient()
 
 type BackHandler interface {
 	bridge.BackHandler
@@ -331,16 +333,20 @@ type BackBridge interface {
 	SetHandler(BackHandler)
 }
 
-func RegisterBackBridge(bridge BackBridge) {
-	bridge.SetHandler(applicationBackHandler{})
+func RegisterBackBridge(value BackBridge) {
+	value.SetHandler(back)
+}
+
+func setScreenBackHandler(handle func() bool) {
+	back.SetHandler(bridge.BackHandlerFunc(handle))
 }
 ```
 
 `OnBack` runs on Android's UI thread. It returns `true` to consume the event or
-`false` to continue through the Activity's existing default behavior. Passing
-`nil` to `SetHandler` restores the default. Android can recreate the Activity,
-so `RegisterBackBridge` must replace the stored bridge and install the current
-handler each time, just like `RegisterAndroidBridge` and `RegisterIMEBridge`.
+`false` to continue through the Activity's existing default behavior.
+`BackClient.SetHandler(nil)` restores that default. Android can recreate the
+Activity; its next `RegisterBackBridge` call installs the same client again,
+while the application keeps its handler in `BackClient`.
 `bridge.BackBridge` is the canonical documented shape; the one local
 `SetHandler` declaration is necessary because its parameter is another
 gomobile-generated interface.
@@ -362,6 +368,8 @@ An application can independently opt in to Android's system document picker:
 ```go
 import "github.com/bstkhq/apk-ebiten-builder/bridge"
 
+var picker = bridge.NewFilePickerClient()
+
 type FilePickerHandler interface {
 	bridge.FilePickerHandler
 }
@@ -373,15 +381,21 @@ type FilePickerBridge interface {
 	SetHandler(FilePickerHandler)
 }
 
-type filePickerHandler struct{}
-
-func (filePickerHandler) OnResult(path, message string) {
-	// Open path, report message, and delete path when it is no longer needed.
+func RegisterFilePickerBridge(value FilePickerBridge) {
+	picker.Register(value)
+	value.SetHandler(picker)
 }
 
-func RegisterFilePickerBridge(bridge FilePickerBridge) {
-	// Store or replace the bridge because Android can recreate MainActivity.
-	bridge.SetHandler(filePickerHandler{})
+func configurePicker() {
+	picker.SetResultHandler(bridge.FilePickerHandlerFunc(func(path, message string) {
+		// Open path, report message, and delete path when it is no longer needed.
+	}))
+}
+
+func chooseDocument() {
+	if !picker.Open("application/pdf") {
+		// Android has not registered a picker yet; keep or retry the user action.
+	}
 }
 ```
 
@@ -390,12 +404,14 @@ func RegisterFilePickerBridge(bridge FilePickerBridge) {
 local adapter. Android copies the chosen document into the application's
 `cacheDir/picked-files` directory before calling `OnResult`. A successful result
 has a non-empty local `path`, cancellation returns two empty strings, and an
-error has an empty path and a non-empty `message`.
+error has an empty path and a non-empty `message`. `FilePickerClient.Open`
+returns `false` until Android registers an opener and intentionally does not
+replay an open request after Activity recreation.
 
 The picker is absent unless the complete interface is exported, does not
 change `AndroidBridge`, and requires no storage permission or application Java
 code. The application owns every returned cache file and should delete it when
-it is no longer needed. Calling `SetHandler(nil)` stops result delivery.
+it is no longer needed. Calling `SetResultHandler(nil)` stops result delivery.
 
 
 ## Android IME lifecycle

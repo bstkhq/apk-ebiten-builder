@@ -36,24 +36,26 @@ type BackBridge interface {
 	SetHandler(BackHandler)
 }
 
-var backCalls atomic.Int32
+var (
+	back      = bridge.NewBackClient()
+	backCalls atomic.Int32
+)
 
-func RegisterBackBridge(bridge BackBridge) {
-	bridge.SetHandler(backHandler{})
+func RegisterBackBridge(value BackBridge) {
+	value.SetHandler(back)
 	fmt.Println("builder-back-fixture: handler-ready")
 }
 
-type backHandler struct{}
+func init() {
+	back.SetHandler(bridge.BackHandlerFunc(handleBack))
+	ebitenmobile.SetGame(backFixtureGame{})
+}
 
-func (backHandler) OnBack() bool {
+func handleBack() bool {
 	call := backCalls.Add(1)
 	consumed := call == 1
 	fmt.Printf("builder-back-fixture: call=%d consumed=%t\n", call, consumed)
 	return consumed
-}
-
-func init() {
-	ebitenmobile.SetGame(backFixtureGame{})
 }
 
 type backFixtureGame struct{}

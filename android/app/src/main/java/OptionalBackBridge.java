@@ -21,9 +21,11 @@ import java.util.concurrent.atomic.AtomicReference;
  * <pre>{@code
  * import "github.com/bstkhq/apk-ebiten-builder/bridge"
  *
+ * var back = bridge.NewBackClient()
+ *
  * type BackHandler interface { bridge.BackHandler }
  * type BackBridge interface { SetHandler(BackHandler) }
- * func RegisterBackBridge(BackBridge)
+ * func RegisterBackBridge(value BackBridge) { value.SetHandler(back) }
  * }</pre>
  *
  * <p>Applications without that complete export retain the Activity's existing
