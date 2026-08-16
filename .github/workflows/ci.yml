@@ -61,7 +61,7 @@ jobs:
             android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Restore Android SDK cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/Android/Sdk
           key: android-sdk-${{ runner.os }}-${{ hashFiles('Dependencies.mk') }}
