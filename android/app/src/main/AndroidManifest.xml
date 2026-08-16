@@ -8,6 +8,7 @@
     android:roundIcon="@mipmap/ic_launcher_round"
     android:supportsRtl="true"
     android:allowBackup="true"
+    @@USES_CLEARTEXT_TRAFFIC_ATTRIBUTE@@
     android:label="@@APP_NAME@@"
     android:theme="@style/SplashTheme">
     <activity
@@ -22,5 +23,15 @@
         <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
     </activity>
+    <activity
+      android:name=".ProcessRestartActivity"
+      android:excludeFromRecents="true"
+      android:exported="false"
+      android:finishOnTaskLaunch="true"
+      android:launchMode="singleTask"
+      android:noHistory="true"
+      android:process=":restart"
+      android:taskAffinity="@@APP_ID@@.restart"
+      android:theme="@style/RestartTheme" />
   </application>
 </manifest>

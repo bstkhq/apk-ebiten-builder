@@ -28,22 +28,24 @@ public class MainActivity extends AppCompatActivity {
     super.onCreate(savedInstanceState);
 
     try {
-      String androidId = android.provider.Settings.Secure.getString(
-          getContentResolver(),
-          android.provider.Settings.Secure.ANDROID_ID
-      );
+      Seq.setContext(getApplicationContext());
+      Log.i(TAG, "onCreate: Seq.setContext ok");
 
-      long id = Long.parseUnsignedLong(androidId, 16) & 0x7FFFFFFFFFFFFFFFL;
-      Mobile.setAndroidID(id);
-      Log.i(TAG, "onCreate: androidID = " + androidId + " -> " + id);
-
-      try {
-        String timezone = java.util.TimeZone.getDefault().getID();
-        Mobile.class.getMethod("setTimezone", String.class).invoke(null, timezone);
-      } catch (NoSuchMethodException e) {
-        Log.i(TAG, "onCreate: setTimezone(string) not declared, skipping");
-      } catch (Exception e) {
-        Log.e(TAG, "onCreate: setTimezone error", e);
+      AndroidPlatformServices platform = new AndroidPlatformServices(getApplicationContext());
+      if (OptionalAndroidPlatform.register(Mobile.class, platform)) {
+        Log.i(TAG, "onCreate: AndroidPlatform registered");
+      } else {
+        OptionalAndroidPlatform.LegacyValues legacy =
+            OptionalAndroidPlatform.configureLegacy(
+                Mobile.class,
+                platform.androidID(),
+                platform.timeZone());
+        Log.i(TAG, "onCreate: legacy androidID = " + legacy.androidId);
+        if (legacy.timeZoneApplied) {
+          Log.i(TAG, "onCreate: legacy setTimezone applied");
+        } else {
+          Log.i(TAG, "onCreate: setTimezone(string) not declared, skipping");
+        }
       }
 
       setContentView(R.layout.activity_main);
@@ -59,9 +61,6 @@ public class MainActivity extends AppCompatActivity {
 
       // prevent canvas size from changing due to IME or system bar insets
       WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-
-      Seq.setContext(getApplicationContext());
-      Log.i(TAG, "onCreate: Seq.setContext ok");
 
       EbitenExtendedView v = getEbitenView();
       Log.i(TAG, "onCreate: ebiten view = " + v);
