@@ -23,6 +23,7 @@ Inspired by the practices from `github.com/programatta/demoandroid` (the "do it 
 - [Android runtime bridge](#android-runtime-bridge)
 - [Android Back bridge](#android-back-bridge)
 - [Optional Android file picker](#optional-android-file-picker)
+- [Android IME lifecycle](#android-ime-lifecycle)
 - [Automated tests](#automated-tests)
 - [Include.mk targets](#includemk-targets)
 - [How template substitution works](#how-template-substitution-works)
@@ -303,18 +304,47 @@ code. The application owns every returned cache file and should delete it when
 it is no longer needed. Calling `SetHandler(nil)` stops result delivery.
 
 
+## Android IME lifecycle
+
+The existing `IMEBridge` API is unchanged. In particular, an application may
+request the keyboard synchronously from `RegisterIMEBridge`:
+
+```go
+type IMEBridge interface {
+	Show(inputType, imeOptions int32)
+	Composing() string
+	Hide()
+}
+
+func RegisterIMEBridge(bridge IMEBridge) {
+	bridge.Show(1, 6) // TYPE_CLASS_TEXT, IME_ACTION_DONE
+}
+```
+
+An early `Show` is retained until the Ebiten surface has both view and window
+focus. The surface identifies itself as a text editor only while an explicit
+IME request is active, so merely focusing a legacy game cannot open the
+keyboard. A newer `Show`, `Hide`, or Activity destruction invalidates older
+posted requests; this prevents a stale callback from reopening the keyboard.
+
+Once focused, Android receives a fresh `InputConnection` and the request uses
+the window-insets controller, with a posted `showSoftInput` fallback for an
+AndroidX implementation that cannot supply a controller. `Hide` retains its
+existing API and cancels any pending show before dismissing the keyboard.
+
+
 ## Automated tests
 
 The repository includes three progressively broader gates:
 
 ```bash
 make test          # Java/Go contracts, templates and device-helper tests
-make test-android  # gates above + legacy/bridge/Back/picker APKs and Android lint
-make test-device   # build gate + runtime, restart, Back and picker device checks
+make test-android  # gates above + all fixture APKs and Android lint
+make test-device   # build gate + runtime, restart, Back, picker and IME checks
 ```
 
-The Android build gate compiles legacy, AndroidBridge-only, independent
-BackBridge and independent file-picker packages, inspects the actual gomobile
+The Android build gate compiles legacy, AndroidBridge-only, independent Back,
+independent file-picker and early-IME packages. It inspects the actual gomobile
 Java signatures, runs Debug and Release lint, verifies APK signatures, and
 checks 16 KiB ZIP and native ELF alignment. It defaults to amd64 plus arm64;
 override `ANDROID_TARGET` when a narrower fixture is required.
@@ -327,6 +357,9 @@ exit. Before changing the tablet, the shared device harness records its
 for the launcher transition to settle, requires a stable top-resumed Activity,
 and restores the recorded settings even when a gate fails. The helper itself
 is covered with a fake ADB transport, including the unset-setting case.
+The IME gate requests the keyboard during Activity creation, sends text through
+the focused surface, then verifies that Go can hide it again; the Back gate
+independently verifies consumed and delegated events.
 
 
 <a id="includemk-targets"></a>
