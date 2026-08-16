@@ -94,6 +94,10 @@ build_fixture() {
         echo "legacy fixture unexpectedly exports BackBridge" >&2
         exit 1
       fi
+      if grep -Fq 'registerFilePickerBridge' <<<"${mobile_signature}"; then
+        echo "legacy fixture unexpectedly exports FilePickerBridge" >&2
+        exit 1
+      fi
       ;;
     bridge)
       grep -Fq 'registerAndroidBridge' <<<"${mobile_signature}"
@@ -115,6 +119,10 @@ build_fixture() {
         <<<"${bridge_signature}"
       grep -Fq 'public abstract void restartApp() throws java.lang.Exception;' \
         <<<"${bridge_signature}"
+      if grep -Fq 'registerFilePickerBridge' <<<"${mobile_signature}"; then
+        echo "bridge fixture unexpectedly exports FilePickerBridge" >&2
+        exit 1
+      fi
       ;;
     back)
       grep -Fq 'registerBackBridge' <<<"${mobile_signature}"
@@ -133,6 +141,40 @@ build_fixture() {
       grep -Fq 'public abstract void setHandler(' <<<"${back_bridge_signature}"
       grep -Fq '.corelib.mobile.BackHandler);' <<<"${back_bridge_signature}"
       grep -Fq 'public abstract boolean onBack();' <<<"${back_handler_signature}"
+      if grep -Fq 'registerFilePickerBridge' <<<"${mobile_signature}"; then
+        echo "back fixture unexpectedly exports FilePickerBridge" >&2
+        exit 1
+      fi
+      ;;
+    picker)
+      grep -Fq 'public static native void setAndroidID(long);' <<<"${mobile_signature}"
+      grep -Fq 'public static native void registerFilePickerBridge(' <<<"${mobile_signature}"
+      if grep -Fq 'registerAndroidBridge' <<<"${mobile_signature}"; then
+        echo "picker fixture unexpectedly depends on AndroidBridge" >&2
+        exit 1
+      fi
+      if grep -Fq 'registerBackBridge' <<<"${mobile_signature}"; then
+        echo "picker fixture unexpectedly depends on BackBridge" >&2
+        exit 1
+      fi
+
+      local picker_bridge_signature
+      picker_bridge_signature="$(
+        javap -public -classpath "${inspect_dir}/classes.jar" \
+          "${app_id}.corelib.mobile.FilePickerBridge"
+      )"
+      test "$(grep -Ec '^  public abstract ' <<<"${picker_bridge_signature}")" -eq 2
+      grep -Fq 'public abstract void open(java.lang.String);' <<<"${picker_bridge_signature}"
+      grep -Fq 'public abstract void setHandler(' <<<"${picker_bridge_signature}"
+
+      local picker_handler_signature
+      picker_handler_signature="$(
+        javap -public -classpath "${inspect_dir}/classes.jar" \
+          "${app_id}.corelib.mobile.FilePickerHandler"
+      )"
+      test "$(grep -Ec '^  public abstract ' <<<"${picker_handler_signature}")" -eq 1
+      grep -Fq 'public abstract void onResult(java.lang.String, java.lang.String);' \
+        <<<"${picker_handler_signature}"
       ;;
     *)
       echo "unknown Android fixture ${fixture}" >&2
@@ -179,3 +221,4 @@ build_fixture() {
 build_fixture legacy v1.0.1 "" ""
 build_fixture bridge v1.0.2 true ""
 build_fixture back v1.0.3 "" true
+build_fixture picker v1.0.4 "" ""

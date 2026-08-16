@@ -22,6 +22,7 @@ Inspired by the practices from `github.com/programatta/demoandroid` (the "do it 
   - [Injecting variables into Go (ldflags)](#injecting-variables-into-go-ldflags)
 - [Android runtime bridge](#android-runtime-bridge)
 - [Android Back bridge](#android-back-bridge)
+- [Optional Android file picker](#optional-android-file-picker)
 - [Automated tests](#automated-tests)
 - [Include.mk targets](#includemk-targets)
 - [How template substitution works](#how-template-substitution-works)
@@ -253,20 +254,58 @@ Android 13+ predictive-Back dispatcher. Empty preserves the existing manifest;
 only empty, `true` and `false` are accepted.
 
 
+## Optional Android file picker
+
+An application can independently opt in to Android's system document picker:
+
+```go
+type FilePickerHandler interface {
+	OnResult(path, message string)
+}
+
+type FilePickerBridge interface {
+	SetHandler(FilePickerHandler)
+	Open(mimeType string)
+}
+
+type filePickerHandler struct{}
+
+func (filePickerHandler) OnResult(path, message string) {
+	// Open path, report message, and delete path when it is no longer needed.
+}
+
+func RegisterFilePickerBridge(bridge FilePickerBridge) {
+	// Store or replace the bridge because Android can recreate MainActivity.
+	bridge.SetHandler(filePickerHandler{})
+}
+```
+
+`Open` launches `ACTION_OPEN_DOCUMENT`; an empty MIME type selects `*/*`.
+Android copies the chosen document into the application's
+`cacheDir/picked-files` directory before calling `OnResult`. A successful result
+has a non-empty local `path`, cancellation returns two empty strings, and an
+error has an empty path and a non-empty `message`.
+
+The picker is absent unless the complete interface is exported, does not
+change `AndroidBridge`, and requires no storage permission or application Java
+code. The application owns every returned cache file and should delete it when
+it is no longer needed. Calling `SetHandler(nil)` stops result delivery.
+
+
 ## Automated tests
 
 The repository includes three progressively broader gates:
 
 ```bash
 make test          # Java reflection contract and generated-template tests
-make test-android  # both gates above + legacy/bridge APKs and Android lint
-make test-device   # both gates above + runtime and safe-restart device checks
+make test-android  # gates above + legacy/bridge/Back/picker APKs and Android lint
+make test-device   # build gate + runtime, restart, Back and picker device checks
 ```
 
-The Android build gate compiles both a legacy package and an
-AndroidBridge-only package, inspects the actual gomobile Java signatures,
-runs Debug and Release lint, verifies APK signatures, and checks 16 KiB ZIP
-and native ELF alignment. It defaults to amd64 plus arm64; override
+The Android build gate compiles legacy, AndroidBridge-only, independent Back,
+and independent file-picker packages. It inspects the actual gomobile Java
+signatures, runs Debug and Release lint, verifies APK signatures, and checks
+16 KiB ZIP and native ELF alignment. It defaults to amd64 plus arm64; override
 `ANDROID_TARGET` when a narrower fixture is required.
 
 The device scripts accept `ADB_SERIAL=<serial>` and
