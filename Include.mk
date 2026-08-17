@@ -11,6 +11,9 @@ GO_PKG ?= mobile
 GO_SRC ?=
 VERSION ?= v1.0.0
 ROOT_DIR ?= $(abspath .)
+# Optional app-owned Android resource tree. Its contents overlay
+# app/src/main/res after the builder template has been generated.
+APP_RES_DIR ?=
 SCREEN_ORIENTATION ?= fullSensor
 ALLOW_BACKUP ?= true
 USES_CLEARTEXT_TRAFFIC ?=
@@ -191,6 +194,7 @@ info:
 	@echo "    ANDROID_TARGET: $(ANDROID_TARGET)"
 	@echo "    ANDROID_SRC   : $(ANDROID_SRC)"
 	@echo "    ANDROID_DIR   : $(ANDROID_DIR)"
+	@echo "    APP_RES_DIR   : $(if $(APP_RES_DIR),$(APP_RES_DIR),disabled)"
 	@echo "    VERSION       : $(VERSION)"
 	@echo "    VERSION_CODE  : $(VERSION_CODE)"
 	@echo "    ALLOW_BACKUP  : $(ALLOW_BACKUP)"
@@ -201,7 +205,7 @@ info:
 	@echo "    DEBUG         : $(DEBUG)"
 	@echo "    GRADLE_LOG    : $(GRADLE_LOG)"
 
-generate: $(ANDROID_DIR)
+generate: $(ANDROID_DIR) overlay-app-resources
 
 $(ANDROID_DIR):
 	$(call LOG,Generating Android project source code)
@@ -224,6 +228,15 @@ $(ANDROID_DIR):
 			fi; \
 		done
 	$(Q)find "$(JAVA_SRC_ROOT)" -type d -empty -delete
+
+overlay-app-resources: $(ANDROID_DIR)
+	$(Q)if [[ -n "$(APP_RES_DIR)" ]]; then \
+		if [[ ! -d "$(APP_RES_DIR)" ]]; then \
+			echo "APP_RES_DIR is not a directory: $(APP_RES_DIR)" >&2; \
+			exit 2; \
+		fi; \
+		rsync -a "$(APP_RES_DIR)/" "$(ANDROID_DIR)/app/src/main/res/"; \
+	fi
 
 compile: $(AAR_PATH)
 
@@ -259,4 +272,4 @@ clean_arr:
 log:
 	$(Q)adb logcat -b main -b system -b crash GoLog:V Go:V $(LOG_TAG):V *:S
 
-.PHONY: all info generate compile build install clean clean_arr print_apk
+.PHONY: all info generate overlay-app-resources compile build install clean clean_arr print_apk

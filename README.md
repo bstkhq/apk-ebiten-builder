@@ -120,6 +120,7 @@ Defined in `Include.mk`. Override from your `Makefile` or on the command line.
 | `GO_PKG`             | `mobile`                    | Go package name passed to `ebitenmobile bind`.                           |
 | `GO_SRC`             | *(required)*                | Absolute path to the game's Go `mobile` package.                         |
 | `GO_LDFLAGS`         | *(empty)*                   | `-ldflags` passed to `ebitenmobile bind`. Useful for injecting variables.|
+| `APP_RES_DIR`        | *(empty)*                   | Optional [app-owned Android resource overlay](docs/template-generation.md#application-resources). |
 | `VERSION`            | `v1.0.0`                    | `versionName`. `VERSION_CODE` is derived automatically.                  |
 | `SCREEN_ORIENTATION` | `fullSensor`                | Value for `android:screenOrientation`.                                   |
 | `ALLOW_BACKUP`       | `true`                      | Strict `true`/`false` value for the manifest `android:allowBackup` policy. |
@@ -141,7 +142,6 @@ export GO_LDFLAGS
 
 Use the same variable in the consuming application's `Makefile`; leave it
 empty when no compile-time configuration is needed.
-
 
 ## Android bridges
 

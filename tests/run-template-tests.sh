@@ -11,7 +11,9 @@ generate() {
   local output_dir="$1"
   shift
   mkdir -p "${output_dir}"
-  ln -s "${repo_dir}/android" "${output_dir}/android"
+  if [[ ! -e "${output_dir}/android" ]]; then
+    ln -s "${repo_dir}/android" "${output_dir}/android"
+  fi
   make --no-print-directory -f "${repo_dir}/Include.mk" generate \
     ROOT_DIR="${output_dir}" \
     GO_SRC="${repo_dir}/tests" \
@@ -26,6 +28,8 @@ cleartext_true_dir="${scratch_dir}/cleartext-true"
 cleartext_false_dir="${scratch_dir}/cleartext-false"
 zero_major_dir="${scratch_dir}/zero-major"
 padded_components_dir="${scratch_dir}/padded-components"
+app_resources_dir="${scratch_dir}/app-resources"
+resource_fixture_dir="${repo_dir}/tests/fixtures/resources"
 generate "${default_dir}" VERSION=v1.19.2
 generate "${cleartext_true_dir}" USES_CLEARTEXT_TRAFFIC=true \
   ENABLE_ON_BACK_INVOKED_CALLBACK=true SCREEN_ORIENTATION=landscape
@@ -33,6 +37,7 @@ generate "${cleartext_false_dir}" USES_CLEARTEXT_TRAFFIC=false \
   ENABLE_ON_BACK_INVOKED_CALLBACK=false ALLOW_BACKUP=' false '
 generate "${zero_major_dir}" VERSION=v0.8.9
 generate "${padded_components_dir}" VERSION=v01.08.09.07
+generate "${app_resources_dir}" APP_RES_DIR="${resource_fixture_dir}"
 
 default_manifest="${default_dir}/.build/android/app/src/main/AndroidManifest.xml"
 true_manifest="${cleartext_true_dir}/.build/android/app/src/main/AndroidManifest.xml"
@@ -41,6 +46,7 @@ default_gradle="${default_dir}/.build/android/app/build.gradle"
 zero_major_gradle="${zero_major_dir}/.build/android/app/build.gradle"
 padded_components_gradle="${padded_components_dir}/.build/android/app/build.gradle"
 generated_java="${default_dir}/.build/android/app/src/main/java/games/example/fixture"
+app_icon="${app_resources_dir}/.build/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml"
 
 grep -Fq 'android:allowBackup="true"' "${default_manifest}"
 grep -Fq 'android:allowBackup="false"' "${false_manifest}"
@@ -75,6 +81,13 @@ test -f "${generated_java}/OptionalFilePickerBridge.java"
 test -f "${generated_java}/AndroidFilePicker.java"
 test -f "${generated_java}/AndroidBridgeServices.java"
 test -f "${generated_java}/ProcessRestartActivity.java"
+grep -Fq '<!-- app-icon-overlay -->' "${app_icon}"
+test -f "${app_resources_dir}/.build/android/app/src/main/res/mipmap-mdpi/ic_launcher.png"
+generate "${app_resources_dir}" APP_RES_DIR="${repo_dir}/android/app/src/main/res"
+if grep -Fq '<!-- app-icon-overlay -->' "${app_icon}"; then
+  echo "updated APP_RES_DIR did not replace the generated icon" >&2
+  exit 1
+fi
 grep -Fq 'registerAndroidBridge' "${generated_java}/OptionalAndroidBridge.java"
 grep -Fq 'registerBackBridge' "${generated_java}/OptionalBackBridge.java"
 grep -Fq 'registerFilePickerBridge' "${generated_java}/OptionalFilePickerBridge.java"
@@ -132,4 +145,10 @@ for invalid in '' TRUE yes 1 'true false'; do
   fi
 done
 
-echo "run-template-tests: defaults, strict backup/cleartext/Back options, bridges, restart and focused IME lifecycle passed"
+if generate "${scratch_dir}/invalid-app-resources" \
+  APP_RES_DIR="${scratch_dir}/does-not-exist" >/dev/null 2>&1; then
+  echo "missing APP_RES_DIR was accepted" >&2
+  exit 1
+fi
+
+echo "run-template-tests: defaults, app resources, strict backup/cleartext/Back options, bridges, restart and focused IME lifecycle passed"

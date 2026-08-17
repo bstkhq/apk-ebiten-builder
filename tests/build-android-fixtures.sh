@@ -39,6 +39,7 @@ build_fixture() {
   local back_invoked="$4"
   local allow_backup="$5"
   local expected_version_code="$6"
+  local app_res_dir="${7:-}"
   local root_dir="${build_parent}/${fixture}"
   local app_id="games.example.builder.${fixture}"
 
@@ -58,6 +59,7 @@ build_fixture() {
     USES_CLEARTEXT_TRAFFIC="${cleartext}" \
     ENABLE_ON_BACK_INVOKED_CALLBACK="${back_invoked}" \
     ALLOW_BACKUP="${allow_backup}" \
+    APP_RES_DIR="${app_res_dir}" \
     NO_COLOR=1
 
   local android_dir="${root_dir}/.build/android"
@@ -237,7 +239,7 @@ build_fixture() {
   echo "build-android-fixtures: ${fixture} (${android_target}) passed"
 }
 
-build_fixture legacy v0.8.9 "" "" true 80900
+build_fixture legacy v0.8.9 "" "" true 80900 "${repo_dir}/tests/fixtures/resources"
 build_fixture bridge v1.0.2 true "" false 1000200
 build_fixture back v1.0.3 "" true true 1000300
 build_fixture picker v1.0.4 "" "" true 1000400
