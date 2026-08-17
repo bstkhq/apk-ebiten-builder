@@ -108,6 +108,14 @@ grep -Fq 'view.prepareShowIME(inputType, imeOptions, keyboardCompatibility())' \
   "${generated_java}/MainActivity.java"
 grep -Fq 'public boolean onCheckIsTextEditor()' "${generated_java}/EbitenExtendedView.java"
 grep -Fq 'return this.currentInputType >= 0;' "${generated_java}/EbitenExtendedView.java"
+grep -Fq 'public boolean deleteSurroundingText(int beforeLength, int afterLength)' \
+  "${generated_java}/EbitenInputConnection.java"
+grep -Fq 'public boolean deleteSurroundingTextInCodePoints(int beforeLength, int afterLength)' \
+  "${generated_java}/EbitenInputConnection.java"
+grep -Fq 'sendHardwareKey(android.view.KeyEvent.KEYCODE_DEL);' \
+  "${generated_java}/EbitenInputConnection.java"
+grep -Fq 'sendHardwareKey(android.view.KeyEvent.KEYCODE_FORWARD_DEL);' \
+  "${generated_java}/EbitenInputConnection.java"
 grep -Fq 'showImeWhenReady(view, generation)' "${generated_java}/MainActivity.java"
 grep -Fq '!view.hasWindowFocus() || !view.isFocused()' "${generated_java}/MainActivity.java"
 grep -Fq 'imm.restartInput(view)' "${generated_java}/MainActivity.java"

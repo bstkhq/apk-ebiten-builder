@@ -12,7 +12,6 @@ import android.util.Log;
 public class EbitenInputConnection extends android.view.inputmethod.BaseInputConnection {
     private static final String TAG = "@@LOG_TAG@@";
 
-    private View targetView;
     private final android.view.KeyCharacterMap kcm;
     private String composing = "";
     private int composingCommitted;
@@ -20,7 +19,6 @@ public class EbitenInputConnection extends android.view.inputmethod.BaseInputCon
 
     public EbitenInputConnection(View targetView) {
         super(targetView, false);
-        this.targetView = targetView;
         this.kcm = android.view.KeyCharacterMap.load(android.view.KeyCharacterMap.VIRTUAL_KEYBOARD);
     }
 
@@ -68,9 +66,20 @@ public class EbitenInputConnection extends android.view.inputmethod.BaseInputCon
     }
 
     @Override
+    public boolean deleteSurroundingText(int beforeLength, int afterLength) {
+        return dispatchDeleteEvents(beforeLength, afterLength);
+    }
+
+    @Override
+    public boolean deleteSurroundingTextInCodePoints(int beforeLength, int afterLength) {
+        return dispatchDeleteEvents(beforeLength, afterLength);
+    }
+
+    @Override
     public void closeConnection() {
         this.composing = "";
         this.composingCommitted = 0;
+        this.silenced = true;
         super.closeConnection();
     }
 
@@ -151,7 +160,24 @@ public class EbitenInputConnection extends android.view.inputmethod.BaseInputCon
     }
 
     private void sendHardwareKey(int keyCode) {
-        targetView.dispatchKeyEvent(new KeyEvent(android.view.KeyEvent.ACTION_DOWN, keyCode));
-        targetView.dispatchKeyEvent(new KeyEvent(android.view.KeyEvent.ACTION_UP, keyCode));
+        sendKeyEvent(new KeyEvent(android.view.KeyEvent.ACTION_DOWN, keyCode));
+        sendKeyEvent(new KeyEvent(android.view.KeyEvent.ACTION_UP, keyCode));
+    }
+
+    private boolean dispatchDeleteEvents(int beforeLength, int afterLength) {
+        if (this.silenced || beforeLength < 0 || afterLength < 0) {
+            return false;
+        }
+
+        // Ebitengine owns the editable text, so BaseInputConnection cannot
+        // delete it directly. Software keyboards can express Backspace through
+        // these callbacks instead of KEYCODE_DEL.
+        for (int i = 0; i < beforeLength; i++) {
+            sendHardwareKey(android.view.KeyEvent.KEYCODE_DEL);
+        }
+        for (int i = 0; i < afterLength; i++) {
+            sendHardwareKey(android.view.KeyEvent.KEYCODE_FORWARD_DEL);
+        }
+        return true;
     }
 }
