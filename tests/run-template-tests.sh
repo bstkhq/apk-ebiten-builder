@@ -116,6 +116,8 @@ grep -Fq 'sendHardwareKey(android.view.KeyEvent.KEYCODE_DEL);' \
   "${generated_java}/EbitenInputConnection.java"
 grep -Fq 'sendHardwareKey(android.view.KeyEvent.KEYCODE_FORWARD_DEL);' \
   "${generated_java}/EbitenInputConnection.java"
+grep -Fq 'android.view.InputDevice.SOURCE_KEYBOARD);' \
+  "${generated_java}/EbitenInputConnection.java"
 grep -Fq 'showImeWhenReady(view, generation)' "${generated_java}/MainActivity.java"
 grep -Fq '!view.hasWindowFocus() || !view.isFocused()' "${generated_java}/MainActivity.java"
 grep -Fq 'imm.restartInput(view)' "${generated_java}/MainActivity.java"

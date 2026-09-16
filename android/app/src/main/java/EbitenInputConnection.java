@@ -89,6 +89,20 @@ public class EbitenInputConnection extends android.view.inputmethod.BaseInputCon
             return true;
         }
 
+        // Software keyboards report their key events as SOURCE_UNKNOWN, because
+        // InputMethodService.sendDownUpKeyEvents() builds them without a source,
+        // and Ebitengine only reads key events reported as SOURCE_KEYBOARD, so the
+        // deletion never reaches the game. Report the delete keys as keyboard
+        // events, keeping flags, meta state and device id untouched.
+        int deleteCode = event.getKeyCode();
+        if (deleteCode == KeyEvent.KEYCODE_DEL || deleteCode == KeyEvent.KEYCODE_FORWARD_DEL) {
+            int source = event.getSource();
+            if ((source & android.view.InputDevice.SOURCE_KEYBOARD)
+                    != android.view.InputDevice.SOURCE_KEYBOARD) {
+                event.setSource(source | android.view.InputDevice.SOURCE_KEYBOARD);
+            }
+        }
+
         // samsung reports left/right arrows as undefined source, so they are not
         // caught by default. The events can be made detectable by updating the
         // source, but... samsung only fires left/right a few times anyway due to
@@ -160,8 +174,18 @@ public class EbitenInputConnection extends android.view.inputmethod.BaseInputCon
     }
 
     private void sendHardwareKey(int keyCode) {
-        sendKeyEvent(new KeyEvent(android.view.KeyEvent.ACTION_DOWN, keyCode));
-        sendKeyEvent(new KeyEvent(android.view.KeyEvent.ACTION_UP, keyCode));
+        sendKeyEvent(asVirtualKeyboardEvent(KeyEvent.ACTION_DOWN, keyCode));
+        sendKeyEvent(asVirtualKeyboardEvent(KeyEvent.ACTION_UP, keyCode));
+    }
+
+    // asVirtualKeyboardEvent builds the event a software keyboard would have sent,
+    // including the source Ebitengine requires to read it at all.
+    private KeyEvent asVirtualKeyboardEvent(int action, int keyCode) {
+        long now = android.os.SystemClock.uptimeMillis();
+        return new KeyEvent(now, now, action, keyCode, 0, 0,
+                KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+                KeyEvent.FLAG_SOFT_KEYBOARD | KeyEvent.FLAG_KEEP_TOUCH_MODE,
+                android.view.InputDevice.SOURCE_KEYBOARD);
     }
 
     private boolean dispatchDeleteEvents(int beforeLength, int afterLength) {
